@@ -4,7 +4,7 @@
 
 | Field | Value |
 |---|---|
-| Status | v1.0, build-ready. Items marked **[VERIFY]** must be confirmed in source before the dependent code is written |
+| Status | v1.1, build-ready. Items marked **[VERIFY]** must be confirmed in source before the dependent code is written |
 | Owner | Solo builder (product, engineering, demo) |
 | Builder | Human + Claude Code (see `shift-claude-code-prompt.md`) |
 | Target | CLOCK IN hackathon (Solana Mobile × Radiants): Mobile track + ORE matched prize |
@@ -15,6 +15,7 @@
 | Date | Version | Change |
 |---|---|---|
 | 4 Oct 2026 | 1.0 | First build-ready version |
+| 4 Oct 2026 | 1.1 | Phase 0 discovery (ORE_NOTES.md, ore-api 3.8.25 @ 48c203bd): (1) crank also sends **Checkpoint** — FR-4.3 / AC-4.5 / NFR-S6 reworded; (2) payslip rebuilt on Miner lifetime counters because ORE auto-returns SOL and auto-closes depleted automations — IN memo, F6 formulas, state machine, AC-5.3, AC-7.2, E-17 changed; (3) idle shell automation (balance 0, executor = owner) may be closed + replaced in one tx — FR-3.1 / AC-3.5 / E-6; (4) executor fee 1 000 lamports/round, MIN_PER_SQUARE 1 000, fee ≤ 5 % rule in planShift, ROUND_SECONDS = 78 measured; (5) Reset relies on ORE bots, crank `/health` reports stalled rounds; (6) wallet layer = `@wallet-ui/react-native-web3js` (MWA + Seed Vault); README must say so. Q-1…Q-7 answered; OQ-1…OQ-5 resolved |
 
 ---
 
@@ -177,66 +178,70 @@ Roles (constants in `config/roles.ts`, tunable):
 Budget presets: 0.02 / 0.05 / 0.10 SOL. Hard maximum 0.5 SOL in MVP. Length presets: 1 h / 4 h / 8 h.
 
 Calculation (pure function `planShift`):
-- `targetRounds = lengthMinutes × 60 ÷ ROUND_SECONDS` [VERIFY the round duration]
-- `perRoundLamports = floor(budgetLamports ÷ targetRounds)`
-- `perSquareLamports = floor(perRoundLamports ÷ squares)`
-- `executorFeePerRound` comes from config [VERIFY fee semantics]
-- If `perSquareLamports < ORE_MIN_DEPLOY` [VERIFY]: reduce `targetRounds` until it's valid and show the adjusted length.
+- `targetRounds = floor(lengthMinutes × 60 ÷ ROUND_SECONDS)`, **`ROUND_SECONDS = 78`**, measured as the wall-clock cycle over 53 consecutive mainnet rounds (p50 289 slots × 0.2694 s/slot = 77.8 s; mean 78.3 s; method and data in `docs/ORE_NOTES.md` §7.6a). It is a planning estimate; the real cycle is read from the chain.
+- `perRoundLamports = floor(budgetLamports ÷ targetRounds)` (this budget covers `perSquare × squares + feePerRound`; the ORE fee is flat per round, not per square)
+- `perSquareLamports = floor((perRoundLamports − feePerRound) ÷ squares)`
+- `feePerRoundLamports = EXECUTOR_FEE = 1_000` (config constant). Semantics verified: flat lamports, charged once per round on the first deploy (`deploy.rs:338-347`).
+- **Reduce `targetRounds` until BOTH hold**, then show the adjusted length: (a) `perSquareLamports ≥ MIN_PER_SQUARE = 1_000` (a product constant — ORE has no on-chain minimum); (b) **fee rule: `feePerRound ≤ 5 %` of per-round spend** (`perSquare × squares + feePerRound`).
+- If even one round cannot satisfy (a) and (b), the combination is rejected (not selectable).
 - `estimatedEnd = now + actualRounds × ROUND_SECONDS`
 
 Functional requirements:
-- FR-2.1: The review card shows the role, budget, **"Max you can lose: {budget} SOL"**, estimated rounds, estimated end time, executor fee total, and the network fee + rent reserve.
+- FR-2.1: The review card shows the role, budget, **"Max you can lose: {budget} SOL"**, estimated rounds, estimated end time, **total executor fee and the fee as a % of the budget**, and the network fee + one-off account costs (Automation rent 0.00200448 SOL, refunded at close; Miner rent 0.0061248 SOL if the wallet has no ORE miner yet, kept; 0.00001 SOL checkpoint reserve; rent is read from the chain, not hard-coded).
 - FR-2.2: Before showing the review card, check the wallet balance is at least budget + rent + 0.01 SOL fee reserve.
 
 Acceptance criteria:
 - **AC-2.1** WHEN any role/budget/length combination is selected THE APP SHALL display a max-loss figure equal to the budget, to 4 decimal places.
-- **AC-2.2** WHEN the computed per-square amount is below the protocol minimum THE APP SHALL reduce the rounds and show "Shortened to {n} rounds to meet ORE's minimum".
+- **AC-2.2** WHEN the per-square amount is below `MIN_PER_SQUARE` or the fee exceeds 5 % of per-round spend THE APP SHALL reduce the rounds and show "Shortened to {n} rounds" with the reason.
 - **AC-2.3** WHEN the wallet balance is insufficient THE APP SHALL disable Clock in and show the amount needed.
-- **AC-2.4** `planShift` SHALL have unit tests covering every preset combination and the minimum-deploy boundary.
+- **AC-2.4** `planShift` SHALL have unit tests covering every preset combination, the `MIN_PER_SQUARE` boundary and the 5 % fee boundary.
 
 ### F3 — Clock in
 **Flow:** review card → **Clock in** → simulate the transaction → MWA `signAndSendTransactions` → confirming state → active shift (F5).
 
 Transaction contents (one transaction, signed by the user):
-1. **ORE `Automate`** with: amount = `perSquareLamports`, deposit = `budgetLamports`, fee = configured executor fee, mask = role mask, strategy = Preferred, reload = 0 (off), executor = crank public key. Exact account list and data layout: [VERIFY] from `ore-api` (§9.4).
+1. **ORE `Automate`** (V1 42-byte or V2 66-byte data, default conditions) with: amount = `perSquareLamports`, deposit = `budgetLamports`, fee = `EXECUTOR_FEE`, mask = role mask, strategy = **Preferred** (1), reload = 0 (off), executor = crank public key. Accounts and layout: `docs/ORE_NOTES.md` §3–4.
 2. **Memo v2** (`MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr`) with the IN record (§9.3).
 3. Compute-budget instructions, if simulation shows they're needed.
 
 Functional requirements:
-- FR-3.1: Before clock-in, read the user's Automation PDA. If an automation exists that is not a SHIFT automation (wrong executor, or no SHIFT IN memo), **block** and show the conflict screen (edge case E-6).
+- FR-3.1: Before clock-in, read the user's Automation PDA (one per authority).
+  - No automation: proceed.
+  - **Idle shell** (`balance == 0` AND `executor == authority`): show a confirmation screen, then send **close + new `Automate` in ONE transaction** (stop = `Automate` with executor = `1111…1111`, `automate.rs:87-97`). Proven by a `simulateTransaction` test (Phase 1).
+  - **Any other** existing automation (including one with a balance, or a different executor, or a SHIFT one still running): **block** (E-6).
 - FR-3.2: Simulate the transaction before requesting a signature; on failure, show a decoded error and do not prompt.
 - FR-3.3: After sending, poll the signature status until finalized/confirmed, or until 60 s pass and the blockhash expires.
 
 Acceptance criteria:
 - **AC-3.1** WHEN the user taps Clock in and approves THE APP SHALL submit exactly one transaction containing `Automate` and the SHIFT IN memo.
-- **AC-3.2** WHEN the transaction confirms THE APP SHALL show the active shift screen, and the on-chain Automation account SHALL have balance = budget, executor = crank key, and reload off.
+- **AC-3.2** WHEN the transaction confirms THE APP SHALL show the active shift screen, and the on-chain Automation account SHALL have balance = budget, executor = crank key, strategy = Preferred and reload off.
 - **AC-3.3** WHEN simulation fails THE APP SHALL NOT open the wallet and SHALL show a readable error.
 - **AC-3.4** WHEN the MWA session errors after sending, or the confirmation is unknown, THE APP SHALL reconcile from chain (F6) before offering a retry, and SHALL NEVER submit a second clock-in for a shift that already exists.
-- **AC-3.5** WHEN a non-SHIFT automation exists THE APP SHALL NOT create or modify it.
+- **AC-3.5** WHEN a non-SHIFT automation exists THE APP SHALL NOT modify it, except an idle shell (FR-3.1) after explicit user confirmation.
 
 ### F4 — Executor crank (server)
 A Node/TypeScript service that holds only the executor keypair and the SOL it needs for transaction fees.
 
 Loop, run every round:
-1. Fetch the current round/board state [VERIFY account].
-2. Fetch all Automation accounts where executor = crank key, using `getProgramAccounts` with a memcmp filter on the executor offset [VERIFY the offset].
-3. Select those with `balance ≥ perRoundCost` where the current round hasn't been deployed yet.
-4. Build the executor-side deploy instructions [VERIFY: which instruction an executor calls for an automation, and its accounts]. Batch as many as fit per transaction.
+1. Fetch the Board (`BrcSxdp1…`) and Config. **The crank does not send `Reset`**; it relies on ORE's bots. If the Board has not advanced for more than `3 × ROUND_SECONDS`, it reports a stalled round.
+2. Fetch all Automation accounts where executor = crank key, using `getProgramAccounts` with `dataSize: 160` and a memcmp on **offset 56** (32 bytes).
+3. Select those with `balance ≥ amount × popcount(mask) + fee` where the current round hasn't been deployed yet.
+4. For each selected automation: if its Miner's `checkpoint_id != round_id`, prepend a **`Checkpoint`** for the Miner's last round (otherwise `Deploy` aborts, `deploy.rs:251-256`), then the **`Deploy`** instruction (accounts: `docs/ORE_NOTES.md` §4). Batch as many as fit per transaction.
 5. Send with a priority fee and retry up to the round deadline.
 6. Log the outcome.
 
 Functional requirements:
-- FR-4.1: `GET /health` returns `{ ok, crankPubkey, lastRoundId, lastRoundDeployedAt, activeAutomations, slotLag, solBalance }`.
+- FR-4.1: `GET /health` returns `{ ok, crankPubkey, lastRoundId, lastRoundDeployedAt, activeAutomations, slotLag, solBalance, roundStalled, lastBoardAdvanceAt }`. `roundStalled` is true when the Board round hasn't advanced for > 3 × ROUND_SECONDS (the app then shows **Paused**, AC-11.1).
 - FR-4.2: A `DRY_RUN=1` mode builds and simulates transactions without sending them.
-- FR-4.3: The crank never signs anything other than executor deploy transactions. No withdraw, claim or transfer code exists in the crank.
+- FR-4.3: **The crank sends only `Deploy` and `Checkpoint` instructions; no code path may transfer, claim, withdraw, or close user funds.** (Fund movements these two instructions can cause are enumerated in `docs/TRUST_MODEL.md`.)
 - FR-4.4: Configuration comes from env vars only: `RPC_URL`, `EXECUTOR_KEYPAIR` (base58 or JSON), `PRIORITY_FEE_MICROLAMPORTS`, `PORT`.
 
 Acceptance criteria:
 - **AC-4.1** WHEN a SHIFT automation has balance ≥ the per-round cost THE CRANK SHALL deploy it in ≥ 98% of rounds over a 30-minute test.
-- **AC-4.2** WHEN an automation's balance falls below the per-round cost THE CRANK SHALL stop deploying it and SHALL NOT error.
+- **AC-4.2** WHEN an automation's balance falls below the per-round cost (ORE then closes it itself) or the account disappears THE CRANK SHALL stop deploying it and SHALL NOT error.
 - **AC-4.3** WHEN the crank restarts THE CRANK SHALL resume within one round with no local state needed.
 - **AC-4.4** `DRY_RUN=1` SHALL produce successful simulations against mainnet for a live test automation.
-- **AC-4.5** The crank's source SHALL contain no instruction builders other than the executor deploy path (checked by code review).
+- **AC-4.5** The crank's source SHALL import only the `executorDeploy` and `checkpoint` instruction builders from `@shift/codec` (enforced by a unit test over its imports, plus code review).
 
 ### F5 — Active shift screen
 Shows:
@@ -251,43 +256,46 @@ Refresh: on focus, on pull-to-refresh, and every 30 s while in the foreground. N
 Acceptance criteria:
 - **AC-5.1** WHEN the screen gains focus THE APP SHALL reconcile and render within 2 s (p50) on a Seeker over Wi-Fi.
 - **AC-5.2** WHEN reconciliation fails THE APP SHALL show the last cached values with a "Last updated {time}" banner.
-- **AC-5.3** WHEN the automation balance is below the per-round cost THE APP SHALL switch to the **Shift complete — see payslip** state.
+- **AC-5.3** WHEN the Automation account is closed or absent and the IN memo has no OUT THE APP SHALL switch to the **Shift complete — see payslip** state.
 
 ### F6 — Reconciler + payslip
 A pure function `reconcile(chainSnapshot, memos) → AppState` (§9.2) plus a fetch layer. The device cache is never the source of truth.
 
 Fetch, using at most 3 RPC calls per refresh:
-1. `getMultipleAccounts([automationPda, minerPda, boardPda])` [VERIFY PDAs]
+1. `getMultipleAccounts([automationPda, minerPda, boardPda])` (PDAs: `docs/ORE_NOTES.md` §2). The Automation account may be absent.
 2. `getSignaturesForAddress(wallet, { until: lastSeenSig, limit: 100 })`, filtered to memos starting with `SHIFT1|`
 
 Payslip fields (for each shift, using the baseline recorded in the IN memo):
 | Field | Formula |
 |---|---|
-| Rounds worked | `floor((budget − balanceRemaining) ÷ (perSquare × squares + feePerRound))` |
-| SOL deployed | `rounds × perSquare × squares` |
-| Executor fees | `rounds × feePerRound` [VERIFY fee semantics] |
-| SOL won | `miner.rewardsSol − baseline.minerSol` [VERIFY field] |
-| ORE earned | `miner.rewardsOre − baseline.minerOre` [VERIFY: unrefined vs refined] |
-| Net SOL | `SOL won + balanceRemaining − budget` |
+| SOL deployed | `miner.lifetimeDeployed − baseLifeDeployed` |
+| Rounds worked | `floor(SOL deployed ÷ (perSquare × squares))` |
+| Executor fees | `rounds × feePerRound` (feePerRound from the IN memo) |
+| SOL won ("returned by ORE") | `miner.lifetimeRewardsSol − baseLifeSol` — includes the share returned from losing squares; shown as "returned" in plain language |
+| ORE earned | `(miner.rewardsOre + miner.refinedOre) − baseOre` while unclaimed; after clock-out, the claimed amount recorded from the OUT transaction |
+| Returned at close | `budget − SOL deployed − executor fees` (the unspent deposit, refunded to the wallet when ORE closes the automation, plus rent) |
+| Net SOL | `SOL won − SOL deployed − executor fees` (≡ `SOL won + returnedAtClose − budget`) |
+
+Why lifetime counters: with reload = 0, ORE sends each round's SOL straight to the wallet at checkpoint, so `miner.rewardsSol` stays ≈ 0 (`checkpoint.rs:206-211`), and ORE closes a depleted automation itself, so its balance is unreadable afterwards (`deploy.rs:349-351`). `lifetimeRewardsSol`/`lifetimeDeployed` only ever increase (`checkpoint.rs:178`, `deploy.rs:324`).
 
 Losses are shown first and in plain language: "You put in 0.05 SOL. You got back 0.031 SOL + 0.012 ORE."
 
 Acceptance criteria:
 - **AC-6.1** WHEN the app is force-killed mid-shift and reopened THE APP SHALL show payslip values that match the values computed from a block explorer read of the same accounts.
 - **AC-6.2** WHEN app data is cleared or the app is reinstalled THE APP SHALL rebuild all shifts from the last 60 days of memos after reconnecting.
-- **AC-6.3** WHEN a delta is negative (rewards claimed elsewhere) THE APP SHALL show "Some rewards were claimed outside SHIFT" and SHALL NOT show negative winnings.
+- **AC-6.3** WHEN the ORE delta is negative (rewards claimed outside SHIFT) THE APP SHALL show "Some rewards were claimed outside SHIFT" and SHALL NOT show negative winnings. (SOL deltas cannot go negative: lifetime counters are monotonic.)
 - **AC-6.4** `reconcile` SHALL be a pure function with fixture-based unit tests covering all shift states in §9.2.
 
 ### F7 — Clock out
 **Flow:** payslip → **Clock out & collect** → simulate → MWA sign → confirmed → payslip stamped **PAID**.
 
-Transaction contents: ORE `ClaimSOL` + `ClaimORE` [VERIFY: whether to claim refined, unrefined or both, and the bps parameter in newer versions] + a call that stops the automation and returns its remaining balance [VERIFY: `Automate` with zero values, or `Close`] + SHIFT OUT memo.
+Transaction contents, in order, omitting any part that has nothing to do: **`Checkpoint`** (only if `miner.checkpointId != miner.roundId`) → **`ClaimORE`** (bps = 10 000: refined + unrefined, 10 % ORE fee on the unrefined part) → **`ClaimSOL`** (only if `miner.rewardsSol > 0`) → **close** (only if the Automation account is still open: `Automate` with executor = `1111…1111`, `automate.rs:87-97`; returns balance + rent) → **SHIFT OUT memo**. ClaimORE is omitted when refined + unrefined = 0.
 
 Acceptance criteria:
 - **AC-7.1** WHEN the user clocks out THE APP SHALL submit one transaction that claims rewards, returns any remaining automation balance, and writes the OUT memo.
-- **AC-7.2** WHEN the transaction confirms THE APP SHALL show the payslip as PAID, and the Automation balance SHALL be 0 (or the account closed).
+- **AC-7.2** WHEN the transaction confirms THE APP SHALL show the payslip as PAID, and the Automation account SHALL be closed (absent), with the OUT memo on chain.
 - **AC-7.3** WHEN the user taps End shift early during an active shift THE APP SHALL show a confirmation stating the returned balance, then run the same flow.
-- **AC-7.4** WHEN there are no rewards to claim THE APP SHALL omit the claim instructions rather than send ones that fail.
+- **AC-7.4** WHEN there are no rewards to claim THE APP SHALL omit the claim (and checkpoint) instructions rather than send ones that fail; `ClaimSOL` is included only if `miner.rewardsSol > 0`.
 
 ### F8 — Shift-end notification (P1)
 - FR-8.1: Schedule a local notification at `estimatedEnd` when clock-in confirms; cancel it if the shift is ended early.
@@ -307,7 +315,7 @@ Acceptance criteria:
 - **AC-10.1** WHEN the user taps Share THE APP SHALL render a payslip image (role, rounds, net SOL, ORE, streak, no wallet address unless the user toggles it on) and open the Android share sheet.
 
 ### F11 — Crank status (P1)
-- **AC-11.1** WHEN `/health` is unreachable, or `lastRoundDeployedAt` is more than 3 rounds old, THE APP SHALL show an amber "Shift paused — executor offline. Your funds are safe in the ORE program", with **End shift & withdraw** offered.
+- **AC-11.1** WHEN `/health` is unreachable, or `lastRoundDeployedAt` is more than 3 rounds old, OR `roundStalled` is true, THE APP SHALL show an amber "Shift paused — executor offline. Your funds are safe in the ORE program", with **End shift & withdraw** offered.
 
 ---
 
@@ -341,9 +349,9 @@ Acceptance criteria:
 | NFR-S3 | Invariant: the deposit in `Automate` equals the displayed budget and is ≤ 0.5 SOL. Enforced in code with a unit test |
 | NFR-S4 | Reload is always 0 |
 | NFR-S5 | The crank key is loaded only from env, never committed, never logged. A `.gitignore` covers key files; secret scanning runs before every commit |
-| NFR-S6 | The crank has no code path for transfers, claims or withdrawals (AC-4.5) |
+| NFR-S6 | The crank sends only `Deploy` and `Checkpoint`; no code path may transfer, claim, withdraw or close user funds (AC-4.5) |
 | NFR-S7 | The ORE program ID and memo program ID are constants, checked against each decoded account's owner |
-| NFR-S8 | The README documents the trust model: what the executor can and can't do, based on the verified program source |
+| NFR-S8 | The README and `docs/TRUST_MODEL.md` document the trust model: what the executor can and can't do, based on the verified program source. The README also states the app uses Mobile Wallet Adapter with Seed Vault (via `@wallet-ui/react-native-web3js`) |
 
 ### Reliability
 - NFR-R1: Every state shown can be rebuilt from chain (principle: the chain is the truth, the device is a cache).
@@ -393,7 +401,7 @@ stateDiagram-v2
   NoShift --> Pending: clock-in sent
   Pending --> Active: confirmed
   Pending --> NoShift: failed / expired (after reconcile)
-  Active --> Complete: balance < perRoundCost
+  Active --> Complete: automation closed/absent, no OUT memo
   Active --> Paused: crank unhealthy
   Paused --> Active: crank healthy
   Active --> Paying: end early
@@ -417,7 +425,10 @@ interface ShiftPlan {
 
 interface ShiftInMemo {            // parsed from chain
   v: 1; kind: 'IN'; role: Role; budget: bigint; perSquare: bigint;
-  squares: number; baseMinerSol: bigint; baseMinerOre: bigint;
+  squares: number; feePerRound: bigint;
+  baseLifeSol: bigint;      // miner.lifetime_rewards_sol at clock-in
+  baseLifeDeployed: bigint; // miner.lifetime_deployed at clock-in
+  baseOre: bigint;          // miner.rewards_ore + miner.refined_ore at clock-in
   localDate: string /* YYYY-MM-DD */; tzOffsetMin: number;
   signature: string; blockTime: number;
 }
@@ -433,15 +444,13 @@ interface Payslip {
   shiftId: string; status: ShiftStatus; role: Role;
   roundsWorked: number; plannedRounds: number;
   solDeployed: bigint; executorFees: bigint; solWon: bigint;
-  oreEarned: bigint; balanceRemaining: bigint; netSol: bigint;
+  oreEarned: bigint; returnedAtClose: bigint; netSol: bigint;
   claimedElsewhere: boolean;
 }
 ```
 
-**Decoded on-chain accounts (layouts [VERIFY] against the pinned `ore-api` version):**
-- `Automation`: amount, authority, balance, executor, fee, strategy, mask, reload, plus any totals and conditions in the pinned version
-- `Miner`: SOL rewards, ORE rewards (refined/unrefined), round data
-- `Board` / `Round`: current round ID, end slot or time
+**Decoded on-chain accounts (verified against `ore-api` 3.8.25 @ 48c203bd):**
+- Layouts are verified (ORE_NOTES §5; sizes Automation 160, Miner 752, Board 40, Round 952, Treasury 48, Config 232). The app reads `Automation`, `Miner` (`lifetimeDeployed`, `lifetimeRewardsSol`, `rewardsOre`, `refinedOre`, `checkpointId`, `roundId`), `Board`.
 
 **Local cache (expo-sqlite):**
 - `settings(key TEXT PK, value TEXT)`: walletPubkey, lastSeenSig
@@ -453,7 +462,7 @@ The `auth_token` lives in `expo-secure-store`, not SQLite.
 ### 9.3 SHIFT memo schema (on-chain ledger)
 Pipe-delimited ASCII, ≤ 200 bytes, version-prefixed:
 ```
-SHIFT1|IN|<role>|<budgetLamports>|<perSquareLamports>|<squares>|<baseMinerSol>|<baseMinerOre>|<YYYY-MM-DD>|<tzOffsetMin>
+SHIFT1|IN|<role>|<budgetLamports>|<perSquareLamports>|<squares>|<feePerRoundLamports>|<baseLifeSol>|<baseLifeDeployed>|<baseOre>|<YYYY-MM-DD>|<tzOffsetMin>
 SHIFT1|OUT|<inSigPrefix16>
 ```
 - The parser rejects anything that doesn't match exactly; unknown versions are ignored.
@@ -470,13 +479,13 @@ Claude Code must produce `docs/ORE_NOTES.md` from the pinned `ore-api` source (c
 6. Executor permissions: exactly what the executor key can do. This feeds the README trust model.
 7. Fee semantics (flat vs bps), minimum deploy amount, round duration, and whether reload = 0 behaves as assumed.
 
-**Gate:** no transaction-building code is merged until this file exists and its decoders correctly parse at least 3 live mainnet accounts of each type.
+**Status: complete (Phase 0, user-approved).** **Gate (met):** no transaction-building code is merged until this file exists and its decoders correctly parse at least 3 live mainnet accounts of each type.
 
 ### 9.5 Stack
 | Layer | Choice |
 |---|---|
 | App | Expo (React Native, TypeScript), generated with `npm create solana-dapp@latest` (Solana Mobile template). Expo **development build**, not Expo Go |
-| Wallet | `@solana-mobile/mobile-wallet-adapter-protocol(-web3js)` as shipped by the template |
+| Wallet | `@wallet-ui/react-native-web3js` as shipped by the template (wraps Mobile Wallet Adapter; Seed Vault) — decision OQ-1 |
 | Chain | `@solana/web3.js` (template version), `@solana/spl-memo` or a hand-built memo instruction |
 | Storage | `expo-sqlite`, `expo-secure-store` |
 | Notifications / share | `expo-notifications`, `react-native-view-shot`, `expo-sharing` |
@@ -535,18 +544,18 @@ GET /health → 200 { ok, crankPubkey, lastRoundId, lastRoundDeployedAt, activeA
 | E-3 | MWA session drops after the wallet signed (unknown send state) | Reconcile; if the IN memo is found, go to Active; else allow retry (AC-3.4) |
 | E-4 | Blockhash expired before confirmation | Mark failed after a status check; offer retry with a fresh blockhash |
 | E-5 | Insufficient SOL for budget + rent + fees | AC-2.3 |
-| E-6 | **User already has a non-SHIFT ORE automation** (one automation per authority [VERIFY]) | Block clock-in; explain; link to ORE's app to stop it. Never modify it |
+| E-6 | **User already has an ORE automation** (one per authority, verified) | Idle shell (balance 0, executor = owner): confirm, then close + new `Automate` in one tx (FR-3.1). Anything else: block clock-in; explain; link to ORE's app to stop it. Never modify it |
 | E-7 | User has unclaimed ORE/SOL from before SHIFT | The baseline in the IN memo excludes it from the payslip; clock-out claims everything and labels pre-existing rewards "earlier rewards" |
 | E-8 | Rewards claimed outside SHIFT mid-shift | AC-6.3 |
 | E-9 | Crank offline | AC-11.1; funds stay in the program; the user can withdraw |
-| E-10 | Crank SOL balance low | `/health` reports it; alert at < 0.05 SOL; the app shows Paused if deploys stop |
+| E-10 | Crank SOL balance low | `/health` reports it; alert at < 0.05 SOL; the app shows Paused if deploys stop or `roundStalled` |
 | E-11 | ORE program upgrade changes a layout | Decoder throws a typed `LayoutMismatch`; the app enters read-only "Maintenance" mode with a banner; no signing allowed |
 | E-12 | RPC rate-limited or down | Cached view + stale banner; exponential backoff (1/2/4/8 s, max 30 s) |
 | E-13 | App killed or phone rebooted mid-shift | Nothing needed; reconcile on next open (AC-6.1) |
 | E-14 | App reinstalled or data cleared | Rebuild from memos (AC-6.2); the notification isn't rescheduled unless a shift is active and its end is in the future |
 | E-15 | Timezone change or clock tampering | Streak uses the memo's `localDate` with the 36 h `blockTime` guard (FR-9.4) |
 | E-16 | Clock-in at 23:59 local time | Counts for that day (memo `localDate`) |
-| E-17 | Leftover balance smaller than one round | Shift is Complete; clock-out returns it |
+| E-17 | Leftover balance smaller than one round | ORE closes the automation itself and refunds the leftover + rent to the wallet; shift is Complete (automation absent, no OUT). Clock-out then claims only |
 | E-18 | Motherlode or unusually large win | Payslip shows it normally; P2 adds a celebration |
 | E-19 | Same wallet on two devices | Both reconcile from chain; the clock-in conflict check (FR-3.1) prevents duplicates |
 | E-20 | Memo parse failure or a foreign `SHIFT1|` look-alike | Ignore entries that fail strict parsing |
@@ -604,13 +613,13 @@ Errors are shown as typed `AppError { code, userMessage, detail }` objects. Raw 
 
 | ID | Question | Blocks | Owner | Due |
 |---|---|---|---|---|
-| **Q-1** | Exactly which instruction(s) and accounts does an executor use to deploy for an automation? | F4 | Builder (+ ORE Discord) | M0 |
-| **Q-2** | Fee semantics in the pinned version: flat lamports or bps of the deploy amount? What fee keeps the crank break-even? | F2, F4 | Builder | M0 |
-| **Q-3** | Is there a public ORE executor we could use instead of running our own? | F4 (optional) | Builder | M0 |
-| **Q-4** | How do you stop an automation and return its balance (`Automate` with zero values, `Close`, or something else)? | F7 | Builder | M0 |
-| **Q-5** | Minimum deploy amount and round duration | F2 | Builder | M0 |
-| Q-6 | One automation per authority (PDA seeds)? Confirms the E-6 behaviour | F3 | Builder | M0 |
-| Q-7 | Which reward fields map to "SOL won" and "ORE earned" (refined/unrefined)? Is a `Checkpoint` required before claiming? | F6, F7 | Builder | M1 |
+| **Q-1** ✅ | `Deploy` (+ prior `Checkpoint`); accounts in ORE_NOTES §4 | F4 | Builder | M0 |
+| **Q-2** ✅ | Flat lamports per round; set to 1 000 | F2, F4 | Builder | M0 |
+| **Q-3** ✅ | Permissionless `EXECUTOR_ADDRESS` exists; we keep our own executor for P0 | F4 (optional) | Builder | M0 |
+| **Q-4** ✅ | `Automate` with executor = default pubkey closes it | F7 | Builder | M0 |
+| **Q-5** ✅ | No on-chain min (`MIN_PER_SQUARE` = 1 000, product); `ROUND_SECONDS` = 78 | F2 | Builder | M0 |
+| Q-6 ✅ | Yes | F3 | Builder | M0 |
+| Q-7 ✅ | Lifetime counters (see F6); Checkpoint required | F6, F7 | Builder | M1 |
 | Q-8 | Final role square counts (20/10/3) — tune from recent round data? | F2 | Builder | M1 |
 | Q-9 | A cheaper way to index SHIFT memos than scanning wallet history (e.g. a tag account)? | F9 (post-MVP) | Builder | Post-hackathon |
 

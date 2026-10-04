@@ -1,28 +1,28 @@
 # Open questions
 PRD Q-1..Q-9 are tracked in `docs/PRD.md` §14; answers land in `docs/ORE_NOTES.md`. Entries below are additional, raised during the build.
 
-## OQ-1 — Template choice and MWA package
+## OQ-1 [RESOLVED 2026-10-04: keep @wallet-ui/react-native-web3js; README states MWA + Seed Vault] — Template choice and MWA package
 - **Found:** `create-solana-dapp` offers `web3js-expo`, `web3js-expo-minimal`, `web3js-expo-paper` (+ kit variants). `web3js-expo-minimal` wraps MWA via `@wallet-ui/react-native-web3js`, not the raw `@solana-mobile/mobile-wallet-adapter-protocol(-web3js)` named in PRD §9.5.
 - **Options:** (a) keep wallet-ui wrapper; (b) call the raw MWA packages directly in `services/wallet.ts`.
 - **Recommendation:** (a) until a gap appears (e.g. reauthorize with cached token, FR-1.3); (b) if so.
 - **Blocks:** Phase 2 only.
 
-## OQ-2 — Crank must send `Checkpoint`, conflicting with AC-4.5 / FR-4.3 / NFR-S6  **[BLOCKS Phase 4]**
+## OQ-2 [RESOLVED 2026-10-04: crank sends only Deploy + Checkpoint; FR-4.3/AC-4.5/NFR-S6 amended in PRD v1.1; source review in docs/TRUST_MODEL.md] — Crank must send `Checkpoint`, conflicting with AC-4.5 / FR-4.3 / NFR-S6  **[BLOCKS Phase 4]**
 - **Found:** `Deploy` asserts `miner.checkpoint_id == miner.round_id` at the start of each new round (`deploy.rs:251-256`). Without a `Checkpoint` for the previous round, every subsequent deploy panics. `Checkpoint` is permissionless (any signer; `checkpoint.rs:10-17`). PRD AC-4.5 says the crank has "no instruction builders other than the executor deploy path".
 - **Options:** (a) crank also builds `Checkpoint` and AC-4.5/NFR-S6 are reworded to "deploy + checkpoint only"; (b) user-signed checkpoints (impossible — defeats one-signature UX); (c) rely on third-party bots to checkpoint (unreliable, undemonstrable).
 - **Recommendation:** (a). Checkpoint can only move funds per program rules (rewards to the *authority*, `checkpoint.rs:194-215`; optional bot fee from the miner's own `checkpoint_fee` reserve). Trust model stays: no transfer/claim/withdraw code. Needs your OK to amend the AC.
 
-## OQ-3 — Payslip / state-machine data model differs from PRD (auto-return, auto-close)  **[BLOCKS Phase 5; affects IN memo format in Phase 1]**
+## OQ-3 [RESOLVED 2026-10-04: lifetime-counter payslip; IN memo carries baseLifeSol|baseLifeDeployed|baseOre (+feePerRound, added by builder — see PRD §9.3)] — Payslip / state-machine data model differs from PRD (auto-return, auto-close)  **[BLOCKS Phase 5; affects IN memo format in Phase 1]**
 - **Found (see ORE_NOTES §7.2/7.3/7.5):** (1) With reload=0, SOL returned per round goes straight to the wallet at checkpoint; `miner.rewards_sol` stays 0 — PRD's "SOL won = rewardsSol − baseline" would always show 0. (2) The Automation account **closes itself** when balance < one round's cost, refunding to the wallet — `balanceRemaining` is not readable afterwards. (3) `lifetime_rewards_ore` is decremented by the claim fee, so isn't monotonic.
 - **Needed:** memo baseline must carry `lifetime_rewards_sol` and `lifetime_deployed` (and an ORE baseline of `rewards_ore + refined_ore`), not `rewardsSol`. PRD §9.3 IN memo has `baseMinerSol|baseMinerOre`; budget is ≤200 bytes (fits).
 - **Recommendation:** IN memo: `SHIFT1|IN|role|budget|perSquare|squares|baseLifeSol|baseLifeDeployed|baseOre|date|tz` (re-purposing the two baseline fields + one more). Rounds worked = Δ`lifetime_deployed` ÷ (perSquare×squares); net SOL = Δ`lifetime_rewards_sol` − Δ`lifetime_deployed` − fees(rounds×fee). State "Complete" = Automation account gone/under cost. ORE earned = Δ(`rewards_ore`+`refined_ore`) before claim; after clock-out take it from the OUT tx's claim amount/ORE token transfer. Need your OK to change PRD §9.2/§9.3/F6 formulas, AC-5.3, E-17, AC-7.2.
 
-## OQ-4 — Pre-existing *idle* automations (balance 0, executor = authority)  **[BLOCKS Phase 3 conflict logic]**
+## OQ-4 [RESOLVED 2026-10-04: idle shell -> confirm + close+Automate in one tx (simulation-tested); else block] — Pre-existing *idle* automations (balance 0, executor = authority)  **[BLOCKS Phase 3 conflict logic]**
 - **Found:** 2 of 4 sampled live automations are idle shells (balance 0, executor == own authority; fixtures `automation-2fFYVW8S`, `-3NAqJqQj`). `Automate` on an existing PDA *overwrites* its settings and adds the deposit (`automate.rs:112-134`), so clock-in would "modify" a non-SHIFT automation, contradicting AC-3.5/E-6.
 - **Options:** (a) always block, tell user to close it in ORE's app; (b) if balance == 0, offer a one-tap "close it first" in the same clock-in tx (stop = `Automate` with executor `1111…`, then new `Automate`); (c) overwrite silently (violates AC-3.5).
 - **Recommendation:** (b) with explicit review-card text; funded foreign automations always block (a).
 
-## OQ-5 — Round timing, per-round fee overhead, and who sends `Reset`
+## OQ-5 [RESOLVED 2026-10-04: fee 1000, MIN_PER_SQUARE 1000, fee<=5% rule, ROUND_SECONDS 78 measured, ORE bots do Reset] — Round timing, per-round fee overhead, and who sends `Reset`
 - **Found:** live round = 240 slots + 48 intermission ≈ 78–86 s per cycle (not 60 s); `Reset` is a separate permissionless instruction someone must send (`reset.rs`, ORE bots do today). Fee is flat per round: at a 7 000-lamport fee (what ORE's bots use), an 8 h / 0.02 SOL shift (~340 rounds) pays ~2.4 M lamports ≈ **12% of the budget** in executor fees; 1 h / 0.10 SOL ≈ 1.4%. No on-chain min deploy.
 - **Decisions needed:** (1) Executor fee per round (suggest 5 000–7 000 lamports; or lower and eat crank cost). (2) Product-level `MIN_PER_SQUARE` (PRD "ORE_MIN_DEPLOY" doesn't exist on-chain). (3) Do we rely on ORE's bots for `Reset` (recommended; crank only observes + health flag) or also run it (adds a 3rd instruction to the crank)? (4) Replace the PRD's 8 h/0.02 preset or show the fee-share honestly on the review card (FR-2.1 already lists "executor fee total").
 - **Related (Q-3):** permissionless `EXECUTOR_ADDRESS` could remove our crank for deploys; recommend keeping our own executor for P0 reliability + trust story.

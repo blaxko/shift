@@ -3,6 +3,7 @@ import { PropsWithChildren } from 'react'
 import { NetworkProvider } from '@/features/network/network-provider'
 import { MobileWalletProvider } from '@wallet-ui/react-native-web3js'
 import { useNetwork } from '@/features/network/use-network'
+import { APP_IDENTITY } from '@/src/config/constants'
 
 const queryClient = new QueryClient()
 export function AppProviders({ children }: PropsWithChildren) {
@@ -23,7 +24,7 @@ function SolanaNetworkProvider({ children }: PropsWithChildren) {
     <MobileWalletProvider
       chain={selectedNetwork.id}
       endpoint={selectedNetwork.url}
-      identity={{ name: 'Wallet UI Example Web3js Expo' }}
+      identity={APP_IDENTITY}
     >
       {children}
     </MobileWalletProvider>

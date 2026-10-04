@@ -1,15 +1,12 @@
 {
   "expo": {
-    "name": "app",
-    "slug": "app",
+    "name": "SHIFT",
+    "slug": "shift",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "expoweb3js",
-    "userInterfaceStyle": "light",
-    "ios": {
-      "supportsTablet": true
-    },
+    "scheme": "shift",
+    "userInterfaceStyle": "automatic",
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -18,7 +15,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.app"
+      "package": "app.shift.seeker"
     },
     "web": {
       "output": "static",
@@ -39,7 +36,9 @@
           }
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-secure-store",
+      "expo-sqlite"
     ],
     "experiments": {
       "reactCompiler": true,

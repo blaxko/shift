@@ -1,5 +1,14 @@
 # Progress
 
+## 2026-10-04 Phase 2 task #1 — device smoke build (AWAITING USER DEVICE RESULT, docs/DEVICE_TEST.md S-1)
+- Done:
+  - Checkpoint reserve source trace (ORE_NOTES §7.12): reserve (10 000) and Miner rent (6 124 800) are NOT refundable; Automation rent (2 004 480) IS. Added `setupLamports` to the IN memo (13 fields), payslip nets setup cost, FR-2.1 breakdown labels each cost Refundable / Not refundable, new AC-2.5. PRD v1.2. 98 codec tests green.
+  - AC-4.6 (end-of-shift run-down test) added to PRD. Rent-bite analysis: a SHIFT automation holds rent + balance and every outflow is <= balance or a full close, so no planShift margin is needed in theory; verified on chain in Phase 4. The ORE_NOTES §10 rent error was on a legacy under-funded fixture account.
+  - Smoke build: app/src/screens/SmokeScreen.tsx (MWA connect, 1-RPC getMultipleAccounts, decode Board/Config/Automation(/your Automation+Miner) via @shift/codec, 9 on-device self-checks incl. Buffer/BigInt/PDA/builders/secure-store/sqlite); CLUSTER constant (E-23) drives RPC+MWA chain; app renamed SHIFT, package app.shift.seeker (OQ-6); eas.json profile smoke (APK). Added expo-secure-store + expo-sqlite (PRD §9.5) now so one native build covers Phases 2-5.
+  - Verified locally: app tsc clean, expo lint exit 0, expo prebuild (config plugins) OK, Metro android export bundles 1791 modules and contains the smoke strings.
+- Not verified: anything on device. No JDK/Android SDK on this machine, so the APK must come from an EAS cloud build (steps in DEVICE_TEST S-1).
+- Next: wait for S-1 results. Then Phase 2 proper: services/wallet.ts (SecureStore auth cache via MobileWalletProvider cache prop), planShift + tests, balance check, Welcome/Home/Setup/Review screens.
+
 ## 2026-10-04 Phase 1 — codec (complete; Phase 0 approved)
 - Done:
   - Phase 0 closed: ORE notes approved; ROUND_SECONDS = 78 measured (53 consecutive mainnet rounds, method in ORE_NOTES §7.6a); PRD v1.1 applied (change-log entry); OQ-1..5 resolved; smoke import removed.

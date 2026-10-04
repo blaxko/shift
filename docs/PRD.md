@@ -4,7 +4,7 @@
 
 | Field | Value |
 |---|---|
-| Status | v1.1, build-ready. Items marked **[VERIFY]** must be confirmed in source before the dependent code is written |
+| Status | v1.2, build-ready. Items marked **[VERIFY]** must be confirmed in source before the dependent code is written |
 | Owner | Solo builder (product, engineering, demo) |
 | Builder | Human + Claude Code (see `shift-claude-code-prompt.md`) |
 | Target | CLOCK IN hackathon (Solana Mobile × Radiants): Mobile track + ORE matched prize |
@@ -16,6 +16,7 @@
 |---|---|---|
 | 4 Oct 2026 | 1.0 | First build-ready version |
 | 4 Oct 2026 | 1.1 | Phase 0 discovery (ORE_NOTES.md, ore-api 3.8.25 @ 48c203bd): (1) crank also sends **Checkpoint** — FR-4.3 / AC-4.5 / NFR-S6 reworded; (2) payslip rebuilt on Miner lifetime counters because ORE auto-returns SOL and auto-closes depleted automations — IN memo, F6 formulas, state machine, AC-5.3, AC-7.2, E-17 changed; (3) idle shell automation (balance 0, executor = owner) may be closed + replaced in one tx — FR-3.1 / AC-3.5 / E-6; (4) executor fee 1 000 lamports/round, MIN_PER_SQUARE 1 000, fee ≤ 5 % rule in planShift, ROUND_SECONDS = 78 measured; (5) Reset relies on ORE bots, crank `/health` reports stalled rounds; (6) wallet layer = `@wallet-ui/react-native-web3js` (MWA + Seed Vault); README must say so. Q-1…Q-7 answered; OQ-1…OQ-5 resolved |
+| 4 Oct 2026 | 1.2 | (1) Source-verified that the 10 000-lamport checkpoint reserve and the Miner rent are **not refundable** (ORE_NOTES §7.12): FR-2.1 breakdown labels each cost Refundable / Not refundable, new AC-2.5; IN memo gains `setupLamports`; payslip nets setup cost. (2) New AC-4.6: end-of-shift run-down test (rent safety near zero balance). (3) Phase 2 starts with a device smoke build (docs/DEVICE_TEST.md S-1) |
 
 ---
 
@@ -187,13 +188,22 @@ Calculation (pure function `planShift`):
 - `estimatedEnd = now + actualRounds × ROUND_SECONDS`
 
 Functional requirements:
-- FR-2.1: The review card shows the role, budget, **"Max you can lose: {budget} SOL"**, estimated rounds, estimated end time, **total executor fee and the fee as a % of the budget**, and the network fee + one-off account costs (Automation rent 0.00200448 SOL, refunded at close; Miner rent 0.0061248 SOL if the wallet has no ORE miner yet, kept; 0.00001 SOL checkpoint reserve; rent is read from the chain, not hard-coded).
+- FR-2.1: The review card shows the role, budget, **"Max you can lose: {budget} SOL"**, estimated rounds, estimated end time, **total executor fee and the fee as a % of the budget**, and an itemised **cost breakdown, each line labelled Refundable or Not refundable** (amounts are read from the chain, not hard-coded):
+  - Shift budget — returned if unspent (the **max-loss figure**);
+  - Automation account rent 0.00200448 SOL — **Refundable** (returned when ORE closes the automation);
+  - Miner account rent 0.0061248 SOL — **Not refundable**; shown only if the wallet has no ORE Miner yet; reused by all later shifts;
+  - Checkpoint reserve 0.00001 SOL — **Not refundable**; shown only if the Miner's reserve is 0;
+  - Executor fees — total and % of budget (paid out of the budget);
+  - Network fee for the transaction;
+  - a **"Total leaving your wallet now"** line (budget + all of the above).
+  The max-loss figure stays equal to the budget (AC-2.1); non-refundable setup costs are shown separately beneath it so the two are never conflated.
 - FR-2.2: Before showing the review card, check the wallet balance is at least budget + rent + 0.01 SOL fee reserve.
 
 Acceptance criteria:
 - **AC-2.1** WHEN any role/budget/length combination is selected THE APP SHALL display a max-loss figure equal to the budget, to 4 decimal places.
 - **AC-2.2** WHEN the per-square amount is below `MIN_PER_SQUARE` or the fee exceeds 5 % of per-round spend THE APP SHALL reduce the rounds and show "Shortened to {n} rounds" with the reason.
 - **AC-2.3** WHEN the wallet balance is insufficient THE APP SHALL disable Clock in and show the amount needed.
+- **AC-2.5** WHEN the review card is shown THE APP SHALL label every cost line Refundable or Not refundable; the Miner-rent and checkpoint-reserve lines SHALL appear only when they will actually be charged (no Miner / reserve 0) and be omitted otherwise.
 - **AC-2.4** `planShift` SHALL have unit tests covering every preset combination, the `MIN_PER_SQUARE` boundary and the 5 % fee boundary.
 
 ### F3 — Clock in
@@ -241,6 +251,7 @@ Acceptance criteria:
 - **AC-4.2** WHEN an automation's balance falls below the per-round cost (ORE then closes it itself) or the account disappears THE CRANK SHALL stop deploying it and SHALL NOT error.
 - **AC-4.3** WHEN the crank restarts THE CRANK SHALL resume within one round with no local state needed.
 - **AC-4.4** `DRY_RUN=1` SHALL produce successful simulations against mainnet for a live test automation.
+- **AC-4.6** END-OF-SHIFT TEST (mainnet, small budget, own test wallet): WHEN a SHIFT automation is run down to zero THE SYSTEM SHALL show: (a) the final rounds deploy with no rent error (the `InsufficientFundsForRent` seen on a *legacy* fixture automation in ORE_NOTES §10 must not occur on a SHIFT-created one); (b) ORE auto-closes the automation (`deploy.rs:267-278, 349-351`); (c) the remaining balance + Automation rent return to the wallet (wallet delta checked against `returnedAtClose` + 0.00200448 SOL); (d) the app shows **Complete**, the payslip matches the explorer, and clock-out then only claims. Analysis behind it: a SHIFT automation's lamports are always `rent + balance` and every outflow is either `≤ balance` or a full close to the authority, so it can never be left below rent; the test confirms this on chain, and any failure is raised as an OQ proposing a rent-safe margin in `planShift` before code changes.
 - **AC-4.5** The crank's source SHALL import only the `executorDeploy` and `checkpoint` instruction builders from `@shift/codec` (enforced by a unit test over its imports, plus code review).
 
 ### F5 — Active shift screen
@@ -274,7 +285,8 @@ Payslip fields (for each shift, using the baseline recorded in the IN memo):
 | SOL won ("returned by ORE") | `miner.lifetimeRewardsSol − baseLifeSol` — includes the share returned from losing squares; shown as "returned" in plain language |
 | ORE earned | `(miner.rewardsOre + miner.refinedOre) − baseOre` while unclaimed; after clock-out, the claimed amount recorded from the OUT transaction |
 | Returned at close | `budget − SOL deployed − executor fees` (the unspent deposit, refunded to the wallet when ORE closes the automation, plus rent) |
-| Net SOL | `SOL won − SOL deployed − executor fees` (≡ `SOL won + returnedAtClose − budget`) |
+| Setup cost (not refundable) | `memo.setupLamports` — non-zero only for the first shift of a wallet; shown on its own line |
+| Net SOL | `SOL won − SOL deployed − executor fees − setup cost` (≡ `SOL won + returnedAtClose − budget − setup cost`); network fees are not included and the payslip says so |
 
 Why lifetime counters: with reload = 0, ORE sends each round's SOL straight to the wallet at checkpoint, so `miner.rewardsSol` stays ≈ 0 (`checkpoint.rs:206-211`), and ORE closes a depleted automation itself, so its balance is unreadable afterwards (`deploy.rs:349-351`). `lifetimeRewardsSol`/`lifetimeDeployed` only ever increase (`checkpoint.rs:178`, `deploy.rs:324`).
 
@@ -426,6 +438,7 @@ interface ShiftPlan {
 interface ShiftInMemo {            // parsed from chain
   v: 1; kind: 'IN'; role: Role; budget: bigint; perSquare: bigint;
   squares: number; feePerRound: bigint;
+  setupLamports: bigint;    // non-refundable one-off costs paid at clock-in (Miner rent if new + checkpoint reserve if 0)
   baseLifeSol: bigint;      // miner.lifetime_rewards_sol at clock-in
   baseLifeDeployed: bigint; // miner.lifetime_deployed at clock-in
   baseOre: bigint;          // miner.rewards_ore + miner.refined_ore at clock-in
@@ -444,7 +457,7 @@ interface Payslip {
   shiftId: string; status: ShiftStatus; role: Role;
   roundsWorked: number; plannedRounds: number;
   solDeployed: bigint; executorFees: bigint; solWon: bigint;
-  oreEarned: bigint; returnedAtClose: bigint; netSol: bigint;
+  oreEarned: bigint; returnedAtClose: bigint; setupCost: bigint; netSol: bigint;
   claimedElsewhere: boolean;
 }
 ```
@@ -462,7 +475,7 @@ The `auth_token` lives in `expo-secure-store`, not SQLite.
 ### 9.3 SHIFT memo schema (on-chain ledger)
 Pipe-delimited ASCII, ≤ 200 bytes, version-prefixed:
 ```
-SHIFT1|IN|<role>|<budgetLamports>|<perSquareLamports>|<squares>|<feePerRoundLamports>|<baseLifeSol>|<baseLifeDeployed>|<baseOre>|<YYYY-MM-DD>|<tzOffsetMin>
+SHIFT1|IN|<role>|<budgetLamports>|<perSquareLamports>|<squares>|<feePerRoundLamports>|<setupLamports>|<baseLifeSol>|<baseLifeDeployed>|<baseOre>|<YYYY-MM-DD>|<tzOffsetMin>
 SHIFT1|OUT|<inSigPrefix16>
 ```
 - The parser rejects anything that doesn't match exactly; unknown versions are ignored.

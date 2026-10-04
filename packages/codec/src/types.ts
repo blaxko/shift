@@ -10,6 +10,11 @@ export interface ShiftInFields {
   squares: number;
   /** Executor fee per round, lamports. Recorded because the Automation account (the only other place it lives) is closed by ORE when depleted. */
   feePerRound: bigint;
+  /**
+   * Non-refundable one-off costs paid at clock-in, lamports: Miner rent (6 124 800, only if the wallet had no Miner) plus the
+   * 10 000-lamport checkpoint reserve (only if miner.checkpoint_fee was 0). Neither can be withdrawn (ORE_NOTES §7.12). 0 if both existed.
+   */
+  setupLamports: bigint;
   /** miner.lifetime_rewards_sol at clock-in. */
   baseLifeSol: bigint;
   /** miner.lifetime_deployed at clock-in. */

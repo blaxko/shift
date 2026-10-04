@@ -119,7 +119,7 @@ async function main() {
   let fresh: PublicKey | null = null;
   for (const c of candidates) if ((await lamports(c)) > 50_000_000 && !(await exists(pdas.automation(c))) && !(await exists(pdas.miner(c)))) { fresh = c; break; }
   if (fresh) {
-    const memo = formatInMemo({ role: 'balanced', budget: deposit, perSquare: 1000n, squares: 5, feePerRound: 1000n, baseLifeSol: 0n, baseLifeDeployed: 0n, baseOre: 0n, localDate: '2026-10-04', tzOffsetMin: 60 });
+    const memo = formatInMemo({ role: 'balanced', budget: deposit, perSquare: 1000n, squares: 5, feePerRound: 1000n, setupLamports: 6_134_800n, baseLifeSol: 0n, baseLifeDeployed: 0n, baseOre: 0n, localDate: '2026-10-04', tzOffsetMin: 60 });
     const b = await simulate(fresh, [automate({ authority: fresh, executor: crank, amount: 1000n, deposit, fee: 1000n, mask: 0b11111n, reload: false }), shiftMemo(fresh, memo)], [pdas.automation(fresh)]);
     results['B fresh clock-in [automate, memo]'] = report('B fresh wallet: [automate, memo]', b);
     if (b.accounts?.[0]) {

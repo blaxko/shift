@@ -7,13 +7,14 @@ const IN: ShiftInFields = {
   perSquare: 12_000n,
   squares: 10,
   feePerRound: 1000n,
+  setupLamports: 6_134_800n,
   baseLifeSol: 291_129_732n,
   baseLifeDeployed: 1_234_567_890n,
   baseOre: 2_054_599_192n,
   localDate: '2026-10-04',
   tzOffsetMin: 60,
 };
-const GOOD = 'SHIFT1|IN|balanced|50000000|12000|10|1000|291129732|1234567890|2054599192|2026-10-04|60';
+const GOOD = 'SHIFT1|IN|balanced|50000000|12000|10|1000|6134800|291129732|1234567890|2054599192|2026-10-04|60';
 
 describe('memo format / parse (PRD §9.3 v1.1)', () => {
   it('formats the exact documented layout', () => {
@@ -28,11 +29,11 @@ describe('memo format / parse (PRD §9.3 v1.1)', () => {
     expect(parseMemo(`SHIFT1|OUT|${sig}`)).toEqual({ kind: 'OUT', inSigPrefix: sig });
   });
   it('handles zero baselines, negative tz, u64 max', () => {
-    const m = { ...IN, baseLifeSol: 0n, baseLifeDeployed: 0n, baseOre: 0n, tzOffsetMin: -300, budget: 0xffffffffffffffffn };
+    const m = { ...IN, setupLamports: 0n, baseLifeSol: 0n, baseLifeDeployed: 0n, baseOre: 0n, tzOffsetMin: -300, budget: 0xffffffffffffffffn };
     expect(parseMemo(formatInMemo(m))).toEqual({ kind: 'IN', ...m });
   });
   it('an IN memo is well under 200 bytes even at worst case widths', () => {
-    const worst = formatInMemo({ ...IN, budget: 0xffffffffffffffffn, perSquare: 0xffffffffffffffffn, baseLifeSol: 0xffffffffffffffffn, baseLifeDeployed: 0xffffffffffffffffn, baseOre: 0xffffffffffffffffn, role: 'balanced', tzOffsetMin: -840 });
+    const worst = formatInMemo({ ...IN, budget: 0xffffffffffffffffn, perSquare: 0xffffffffffffffffn, setupLamports: 0xffffffffffffffffn, baseLifeSol: 0xffffffffffffffffn, baseLifeDeployed: 0xffffffffffffffffn, baseOre: 0xffffffffffffffffn, role: 'balanced', tzOffsetMin: -840 });
     expect(worst.length).toBeLessThanOrEqual(200);
   });
   it('formatInMemo refuses to write something the parser would reject', () => {
@@ -92,6 +93,9 @@ describe('strict parsing — E-20 look-alikes and malformed input all return nul
     ['other app memo', 'hello world'],
     ['json memo', '{"app":"SHIFT1","kind":"IN"}'],
     ['old PRD v1.0 IN shape (10 fields)', 'SHIFT1|IN|balanced|50000000|12000|10|0|0|2026-10-04|60'],
+    ['v1.1 IN shape without setupLamports (12 fields)', 'SHIFT1|IN|balanced|50000000|12000|10|1000|291129732|1234567890|2054599192|2026-10-04|60'],
+    ['setupLamports negative', GOOD.replace('|6134800|', '|-1|')],
+    ['setupLamports leading zero', GOOD.replace('|6134800|', '|06134800|')],
   ];
   for (const [name, text] of cases) {
     it(`rejects: ${name}`, () => {

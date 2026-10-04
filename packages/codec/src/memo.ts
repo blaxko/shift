@@ -1,7 +1,7 @@
 import type { ParsedMemo, ShiftInFields, ShiftOutFields } from './types';
 
 // PRD v1.1 §9.3. Strict: anything that is not byte-for-byte canonical returns null (E-20).
-//   SHIFT1|IN|<role>|<budget>|<perSquare>|<squares>|<feePerRound>|<baseLifeSol>|<baseLifeDeployed>|<baseOre>|<YYYY-MM-DD>|<tzOffsetMin>
+//   SHIFT1|IN|<role>|<budget>|<perSquare>|<squares>|<feePerRound>|<setupLamports>|<baseLifeSol>|<baseLifeDeployed>|<baseOre>|<YYYY-MM-DD>|<tzOffsetMin>
 //   SHIFT1|OUT|<inSigPrefix16>
 
 export const MEMO_MAX_BYTES = 200;
@@ -38,23 +38,24 @@ export function parseMemo(text: string): ParsedMemo | null {
   }
 
   if (f[1] === 'IN') {
-    if (f.length !== 12) return null;
+    if (f.length !== 13) return null;
     const role = f[2] as (typeof ROLES)[number];
     if (!ROLES.includes(role)) return null;
     const budget = u64(f[3]);
     const perSquare = u64(f[4]);
     const squaresBig = u64(f[5]);
     const feePerRound = u64(f[6]);
-    const baseLifeSol = u64(f[7]);
-    const baseLifeDeployed = u64(f[8]);
-    const baseOre = u64(f[9]);
-    const localDate = f[10]!;
-    if ([budget, perSquare, squaresBig, feePerRound, baseLifeSol, baseLifeDeployed, baseOre].some((x) => x === null)) return null;
+    const setupLamports = u64(f[7]);
+    const baseLifeSol = u64(f[8]);
+    const baseLifeDeployed = u64(f[9]);
+    const baseOre = u64(f[10]);
+    const localDate = f[11]!;
+    if ([budget, perSquare, squaresBig, feePerRound, setupLamports, baseLifeSol, baseLifeDeployed, baseOre].some((x) => x === null)) return null;
     const squares = Number(squaresBig);
     if (squares < 1 || squares > 25) return null;
     if (!validDate(localDate)) return null;
-    if (!TZ.test(f[11]!)) return null;
-    const tzOffsetMin = Number(f[11]);
+    if (!TZ.test(f[12]!)) return null;
+    const tzOffsetMin = Number(f[12]);
     if (tzOffsetMin < -840 || tzOffsetMin > 840) return null;
     return {
       kind: 'IN',
@@ -63,6 +64,7 @@ export function parseMemo(text: string): ParsedMemo | null {
       perSquare: perSquare!,
       squares,
       feePerRound: feePerRound!,
+      setupLamports: setupLamports!,
       baseLifeSol: baseLifeSol!,
       baseLifeDeployed: baseLifeDeployed!,
       baseOre: baseOre!,
@@ -74,7 +76,7 @@ export function parseMemo(text: string): ParsedMemo | null {
 }
 
 const joinIn = (m: ShiftInFields) =>
-  ['SHIFT1', 'IN', m.role, m.budget, m.perSquare, m.squares, m.feePerRound, m.baseLifeSol, m.baseLifeDeployed, m.baseOre, m.localDate, m.tzOffsetMin].join('|');
+  ['SHIFT1', 'IN', m.role, m.budget, m.perSquare, m.squares, m.feePerRound, m.setupLamports, m.baseLifeSol, m.baseLifeDeployed, m.baseOre, m.localDate, m.tzOffsetMin].join('|');
 
 /** Format an IN memo. Throws if the result would not parse back identically (we never write what we can't read). */
 export function formatInMemo(m: ShiftInFields): string {

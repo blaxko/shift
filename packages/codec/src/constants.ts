@@ -25,3 +25,19 @@ export const SIZE = { automation: 160, miner: 752, board: 40, round: 952, treasu
 
 /** api/src/consts.rs */
 export const DENOMINATOR_BPS = 10_000n;
+
+/** entropy-api 0.1.4 src/lib.rs:17 (the program `Deploy` CPIs into on a round's first deploy, deploy.rs:60-68). */
+export const ENTROPY_PROGRAM_ID = new PublicKey('3jSkUuYBoJzQPMEzTvkDFXCZUBksPamrVhrnHR9igu2X');
+/**
+ * api/src/consts.rs:104 VAR_ADDRESS == entropy var_pda(board, 0) (seeds ["var", board, 0u64 LE], entropy-api state/mod.rs:16-21;
+ * reproduced in tests). NOTE: Config.protocol.entropy_var_address / entropy_program_id hold different (stale) values on mainnet
+ * and are NOT what Deploy checks (deploy.rs:57,60) — do not read them.
+ */
+export const ENTROPY_VAR_ADDRESS = new PublicKey('BWCaDY96Xe4WkFq1M7UiCCRcChsJ3p51L5KrGzhxgm2E');
+
+export const SYSTEM_PROGRAM_ID = new PublicKey('11111111111111111111111111111111');
+export const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+export const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
+
+/** NFR-S3: hard cap on the Automate deposit. */
+export const MAX_DEPOSIT_LAMPORTS = 500_000_000n;

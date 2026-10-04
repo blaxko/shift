@@ -1,0 +1,27 @@
+# secrets — keep FIRST (NFR-S5)
+.env
+.env.*
+!.env.example
+*keypair*.json
+*-keypair.json
+id.json
+*.key
+*.pem
+*.jks
+*.keystore
+secrets/
+
+# deps / build
+node_modules/
+dist/
+build/
+.expo/
+.turbo/
+coverage/
+*.tsbuildinfo
+android/
+ios/
+*.apk
+*.aab
+.DS_Store
+*.log

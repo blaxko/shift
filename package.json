@@ -9,7 +9,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc -b packages/codec crank && npm run typecheck -w app",
     "lint": "eslint packages crank scripts",
-    "fetch-fixtures": "tsx scripts/fetch-fixtures.ts"
+    "fetch-fixtures": "tsx scripts/fetch-fixtures.ts",
+    "simulate-live": "tsx scripts/simulate-live.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",

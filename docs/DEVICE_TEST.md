@@ -59,4 +59,8 @@ Needs JDK 17, Android Studio with SDK platform 36 + build-tools, `ANDROID_HOME` 
 
 On any failure: if you have `adb`, `adb logcat -s ReactNativeJS:V ReactNative:V *:E` during the failing step is the most useful thing to paste.
 
-**Gate:** Phase 2 screens (Welcome, Home, Setup, Review) are not built on top of this until S-1 passes.
+## S-1 RESULT — 2026-10-05: ALL PASS (reported by user)
+- Device 21061119AG (not a Seeker), Android per user, wallet Phantom. Self-test 9/9 PASS. Connect PASS (after installing an MWA wallet). Fetch & decode PASS: 1 RPC call, 916 ms; board round 428557, slot length 240; config round_slots 240 / intermission 48; sample automation decoded (fee 7000, reload 1, executor `executor11…`); own Automation: none, Miner: none.
+- Findings: (1) Play Protect blocks the sideloaded APK; "Install anyway" works -> README judge install note (Phase 8). (2) With no MWA wallet installed the library throws "Found no installed wallet that supports the mobile wallet protocol" -> AC-1.3 friendly screen (built in Phase 2). (3) Not yet verified on a real Seeker / Seed Vault.
+
+**Gate (met):** Phase 2 screens (Welcome, Home, Setup, Review) are not built on top of this until S-1 passes.

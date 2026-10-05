@@ -39,5 +39,8 @@ export const SYSTEM_PROGRAM_ID = new PublicKey('11111111111111111111111111111111
 export const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 export const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
 
+/** api/src/consts.rs:89 CHECKPOINT_FEE — reserve the user pre-pays into their Miner (not refundable, ORE_NOTES §7.12). */
+export const CHECKPOINT_FEE_LAMPORTS = 10_000n;
+
 /** NFR-S3: hard cap on the Automate deposit. */
 export const MAX_DEPOSIT_LAMPORTS = 500_000_000n;

@@ -8,6 +8,11 @@ export default function RootLayout() {
     <AppProviders>
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="welcome" options={{ headerShown: false }} />
+        <Stack.Screen name="home" options={{ headerShown: false }} />
+        <Stack.Screen name="setup" options={{ title: 'Start a shift' }} />
+        <Stack.Screen name="risks" options={{ title: 'How SHIFT works & risks' }} />
+        <Stack.Screen name="smoke" options={{ title: 'Diagnostics' }} />
       </Stack>
       <StatusBar style="auto" />
     </AppProviders>

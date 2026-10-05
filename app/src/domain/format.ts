@@ -15,6 +15,13 @@ export function formatSol(lamports: bigint, dp = 4): string {
   return `${neg ? '-' : ''}${whole}${frac}`;
 }
 
+/** Round UP to `dp` decimals. Use for amounts the user must have (shortfalls) so the screen never understates them. */
+export function formatSolUp(lamports: bigint, dp = 4): string {
+  const scale = 10n ** BigInt(LAMPORTS_PER_SOL_DIGITS - dp);
+  const up = ((lamports + scale - 1n) / scale) * scale;
+  return formatSol(up, dp);
+}
+
 /** Exact value, trailing zeros trimmed (min 2 decimals): 6_134_800n -> "0.0061348". For fee lines where 4 dp would hide detail. */
 export function formatSolExact(lamports: bigint): string {
   const s = formatSol(lamports, 9).replace(/0+$/, '');

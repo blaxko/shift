@@ -1,5 +1,15 @@
 # Progress
 
+## 2026-10-05 Phase 2 — wallet, planShift, Welcome/Home/Setup (AWAITING DEVICE S-2)
+- Done (verified by unit tests, 166 green; app tsc + expo lint clean; Metro bundles 1809 modules):
+  - AC-2.4 PASSING: planShift unit tests (all 27 preset combos, hand-computed values, MIN_PER_SQUARE and 5% fee boundaries incl. exact thresholds, NFR-S3 cap, property sweep).
+  - Logic proven by unit tests, display/flow pending device S-2: AC-2.1 (max-loss figure == budget to 4 dp), AC-2.2 (shortening + reasons), AC-2.3 (balance check, shortfall rounded up), AC-2.5 (Refundable/Not refundable lines, omitted when not charged), AC-1.3/1.4 classification (message observed on device in S-1), AC-1.2/1.5 auth-cache serialisation (round-trip, corrupt entries rejected; found+fixed: 0-byte address decoded to the all-zero key).
+  - Services: SecureStoreAuthCache (token only in expo-secure-store), useShiftWallet (typed connect result, disconnect clears), loadWalletChainState (1 getMultipleAccounts + cached rents).
+  - Screens: index gate, Welcome (incl. no-wallet panel + Play Store link), Home (no-shift), Setup + Review card (all FR-2.1 fields), Risks (NFR-RD2), Diagnostics. Clock in is a disabled button: NO signing code exists yet. Removed template demo features (arbitrary sign-message/transaction samples).
+- Not verified on device: everything in docs/DEVICE_TEST.md S-2 (AC-1.1, 1.2, 1.3, 1.4, 2.1-2.3, 2.5 display, a11y NFR-A1-A5 spot checks). AC-1.5 deferred to Phase 3 (needs a signing action).
+- Note for user: with a 0.05 SOL wallet and no Miner, only the 0.02 SOL budget fits (total leaving now 0.02814928 SOL + 0.01 reserve); 0.05 SOL budget needs ~0.0682 SOL.
+- Next: wait for S-2. Then Phase 3 (clock in): needs the crank PUBLIC key (EXPO_PUBLIC_CRANK_PUBKEY) from you; conflict check wiring, simulate, MWA signAndSend, reconcile-before-retry, NFR-S3/S4 invariants.
+
 ## 2026-10-04 Phase 2 task #1 — device smoke build (AWAITING USER DEVICE RESULT, docs/DEVICE_TEST.md S-1)
 - Done:
   - Checkpoint reserve source trace (ORE_NOTES §7.12): reserve (10 000) and Miner rent (6 124 800) are NOT refundable; Automation rent (2 004 480) IS. Added `setupLamports` to the IN memo (13 fields), payslip nets setup cost, FR-2.1 breakdown labels each cost Refundable / Not refundable, new AC-2.5. PRD v1.2. 98 codec tests green.

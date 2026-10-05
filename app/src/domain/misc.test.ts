@@ -7,7 +7,7 @@ import { ORE_PROGRAM_ID, decode } from '@shift/codec';
 import { describe, expect, it } from 'vitest';
 import { deserializeAuth, serializeAuth } from './authCache';
 import { classifyExisting } from './conflict';
-import { formatBps, formatMinutes, formatSol, formatSolExact, speakSol } from './format';
+import { formatBps, formatMinutes, formatSol, formatSolExact, formatSolUp, speakSol } from './format';
 import { classifyWalletError } from './walletErrors';
 
 const fx = (name: string) => {
@@ -29,6 +29,14 @@ describe('format', () => {
     expect(formatSol(-1_500_000n, 3)).toBe('-0.002');
     expect(formatSol(123_456_789n, 9)).toBe('0.123456789');
     expect(formatSol(5n, 0)).toBe('0');
+  });
+  it('formatSolUp never understates a shortfall (AC-2.3)', () => {
+    expect(formatSolUp(1n)).toBe('0.0001');
+    expect(formatSolUp(100_000n)).toBe('0.0001'); // exact multiple stays
+    expect(formatSolUp(100_001n)).toBe('0.0002');
+    expect(formatSolUp(0n)).toBe('0.0000');
+    expect(formatSolUp(18_149_280n)).toBe('0.0182');
+    expect(formatSol(18_149_280n)).toBe('0.0181'); // plain rounding would understate
   });
   it('formatSolExact keeps all significant digits', () => {
     expect(formatSolExact(6_134_800n)).toBe('0.0061348');

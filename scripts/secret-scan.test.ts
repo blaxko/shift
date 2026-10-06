@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error plain .mjs script, no types
-import { findInText, isKeyFile, mask } from './secret-scan.mjs';
+import { CONTENT_ALLOWLIST, findInText, isKeyFile, mask } from './secret-scan.mjs';
 
 // All samples are synthetic: random-looking but not real keys.
 const json64 = JSON.stringify(Array.from({ length: 64 }, (_, i) => (i * 37 + 11) % 256));
@@ -39,5 +39,14 @@ describe('secret-scan rules', () => {
   it('key files: executor.json, id.json, *keypair*.json, .env, *.pem/.key are flagged; .env.example is allowed', () => {
     for (const p of ['executor.json', 'shift-secrets/executor.json', 'id.json', 'my-keypair.json', '.env', 'crank/.env.production', 'x/server.pem', 'a/b.key']) expect(isKeyFile(p), p).toBe(true);
     for (const p of ['.env.example', 'crank/.env.example', 'package.json', 'app/app.json', 'packages/codec/test/fixtures/miner-9MbHiQxn.json']) expect(isKeyFile(p), p).toBe(false);
+  });
+});
+
+describe('content allow-list', () => {
+  it('is exactly the scanner and its own test, nothing else', () => {
+    expect([...CONTENT_ALLOWLIST].sort()).toEqual(['scripts/secret-scan.mjs', 'scripts/secret-scan.test.ts']);
+  });
+  it('key-file NAMES are still checked for every path (the allow-list only skips content)', () => {
+    expect(isKeyFile('scripts/executor.json')).toBe(true);
   });
 });

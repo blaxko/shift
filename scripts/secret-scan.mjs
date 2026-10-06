@@ -21,6 +21,11 @@ export const RULES = [
 ];
 const KEY_FILE = /(^|\/)(executor|id)\.json$|(^|\/)[^/]*keypair[^/]*\.json$|(^|\/)\.env(\.[^/]*)?$|\.(pem|key|keystore|jks)$/i;
 const ALLOWED_FILE = /(^|\/)\.env\.example$/;
+/**
+ * Files whose CONTENT is not scanned: the scanner and its test legitimately contain synthetic sample secrets (fake keys used to prove
+ * the rules fire). Exactly these two paths; the key-file NAME check still applies to every path.
+ */
+export const CONTENT_ALLOWLIST = new Set(['scripts/secret-scan.mjs', 'scripts/secret-scan.test.ts']);
 
 export function mask(s) {
   return `${s.slice(0, 4)}…[${s.length} chars masked]`;
@@ -56,6 +61,7 @@ function main() {
       const [meta, path] = row.split('\t');
       const blob = meta.split(' ')[2];
       if (isKeyFile(path)) findings.push({ commit: c.slice(0, 8), path, rule: 'key-file-tracked', line: 0, masked: '(file name)' });
+      if (CONTENT_ALLOWLIST.has(path)) continue;
       if (seenBlob.has(blob)) continue; // identical content already scanned
       seenBlob.add(blob);
       if (/\.(png|jpg|jpeg|gif|ico|ttf|otf|woff2?|hbc|apk|lock)$/i.test(path) || path.endsWith('package-lock.json')) continue;

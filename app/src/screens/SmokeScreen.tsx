@@ -122,7 +122,8 @@ async function runSelfTest(): Promise<Check[]> {
 interface Live {
   board: Board;
   config: Config;
-  sample: Automation;
+  /** The hard-coded sample can close (it did: 2026-10-05). Missing is a skip, never an error. */
+  sample: Automation | null;
   walletAutomation: Automation | null;
   walletMiner: Miner | null;
   ms: number;
@@ -163,7 +164,7 @@ export function SmokeScreen() {
       setLive({
         board: decode.board(need(0, 'board')),
         config: decode.config(need(1, 'config')),
-        sample: decode.automation(need(2, 'sample automation')),
+        sample: raw(2) ? decode.automation(raw(2)!) : null,
         walletAutomation: wa ? decode.automation(wa) : null,
         walletMiner: wm ? decode.miner(wm) : null,
         ms: Date.now() - t0,
@@ -217,16 +218,22 @@ export function SmokeScreen() {
             <Text style={s.mono}>
               config round_slots {live.config.protocol.roundSlots.toString()}, intermission {live.config.protocol.intermissionSlots.toString()}
             </Text>
-            <Text style={s.mono}>sample automation (public, decoded)</Text>
-            <Text style={s.mono}>
-              {'  '}balance {sol(live.sample.balance)} SOL, amount {live.sample.amount.toString()}, fee {live.sample.fee.toString()}
-            </Text>
-            <Text style={s.mono}>
-              {'  '}strategy {live.sample.strategy.toString()}, mask {live.sample.mask.toString(2).replace(/0/g, '·').replace(/1/g, '■')}
-            </Text>
-            <Text style={s.mono}>
-              {'  '}executor {live.sample.executor.toBase58().slice(0, 10)}…, reload {live.sample.reload.toString()}
-            </Text>
+            {live.sample ? (
+              <>
+              <Text style={s.mono}>sample automation (public, decoded)</Text>
+              <Text style={s.mono}>
+                {'  '}balance {sol(live.sample.balance)} SOL, amount {live.sample.amount.toString()}, fee {live.sample.fee.toString()}
+              </Text>
+              <Text style={s.mono}>
+                {'  '}strategy {live.sample.strategy.toString()}, mask {live.sample.mask.toString(2).replace(/0/g, '·').replace(/1/g, '■')}
+              </Text>
+              <Text style={s.mono}>
+                {'  '}executor {live.sample.executor.toBase58().slice(0, 10)}…, reload {live.sample.reload.toString()}
+              </Text>
+              </>
+            ) : (
+              <Text style={s.mono}>sample automation: not found (it has closed) — skipped</Text>
+            )}
             {account && (
               <>
                 <Text style={s.mono}>your Automation: {live.walletAutomation ? `balance ${sol(live.walletAutomation.balance)} SOL` : 'none'}</Text>

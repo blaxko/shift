@@ -13,7 +13,10 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction } from '@solana/web3.js';
+import { Connection, Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction } from '@solana/web3.js';
+import { assertClockOutInvariants, buildClockOutInstructions } from '../app/src/domain/clockOut';
+import { rpcChain } from '../crank/src/chain';
+import { consoleLogger } from '../crank/src/log';
 import {
   automate,
   CHECKPOINT_FEE_LAMPORTS,
@@ -24,6 +27,7 @@ import {
   executorDeploy,
   formatInMemo,
   ORE_PROGRAM_ID,
+  PERMISSIONLESS_EXECUTOR,
   pdas,
   shiftMemo,
   SIZE,
@@ -176,6 +180,39 @@ async function main() {
     results['D executorDeploy: ORE program ran Deploy to success' + (oreRan && legacyRent ? ' (tx-level rent error on legacy fixture automation, not builder)' : '')] = oreRan;
     report(`D deploy for authority ${auto.authority.toBase58().slice(0, 6)}… executor ${auto.executor.toBase58().slice(0, 6)}…`, d!);
   } else console.log('D: no funded automation fixture');
+
+  // ---- E: the CLOCK-OUT transaction shapes (Phase 6) against the real program
+  {
+    const fakeIn = '3Y' + 'a'.repeat(86);
+    // E1: claim + close + OUT memo for a real miner with ORE to claim (its idle-shell automation is closed by the stop)
+    const planE1 = { checkpointRoundId: null, claimOre: true, claimSol: false, closeAutomation: true };
+    const e1 = buildClockOutInstructions({ owner: au, plan: planE1, inSignature: fakeIn });
+    assertClockOutInvariants(e1.instructions, { owner: au, inSignature: fakeIn });
+    const e1r = await simulate(PAYER, [fund(au, 10_000_000), ...e1.instructions], [pdas.automation(au)]);
+    results['E1 clock-out [ClaimORE, close, OUT memo] in ONE tx'] = report('E1 clock-out: [claimOre, stop, OUT memo]', e1r);
+    // E2: THE S-3 CASE: a 0-round shift = memo-only transaction
+    const e2 = buildClockOutInstructions({ owner: PAYER, plan: { checkpointRoundId: null, claimOre: false, claimSol: false, closeAutomation: false }, inSignature: fakeIn });
+    assertClockOutInvariants(e2.instructions, { owner: PAYER, inSignature: fakeIn });
+    results['E2 clock-out of a 0-round shift = OUT memo only'] = report('E2 0-round clock-out: [OUT memo]', await simulate(PAYER, e2.instructions));
+  }
+
+  // ---- F: checkpoint look-ahead (the clock-out flow simulates a Checkpoint alone to read the settled Miner)
+  {
+    const chain = rpcChain(new Connection(RPC_URL, 'confirmed'), consoleLogger());
+    const autos = await chain.automationsFor(PERMISSIONLESS_EXECUTOR);
+    const ms = await chain.miners(autos.map((a) => a.authority));
+    // Checkpoint is a deliberate no-op for the round still in progress (checkpoint.rs:44), so only look at miners whose round has ENDED.
+    const cur = (await chain.board()).roundId;
+    const cand = [...ms.values()].find((m) => m && m.roundId < cur && m.checkpointId !== m.roundId && m.deployed.some((d) => d > 0n));
+    if (!cand) console.log('F: no live miner with an unchecked, already-ended round right now; skipped (not a failure)');
+    else {
+      const probe = await simulate(PAYER, [checkpoint({ signer: PAYER, authority: cand.authority, roundId: cand.roundId })], [pdas.miner(cand.authority)]);
+      const post = probe.accounts?.[0] ? decode.miner({ owner: ORE_PROGRAM_ID, data: Buffer.from(probe.accounts[0].data[0], 'base64') }) : null;
+      console.log(`   F look-ahead: before ckpt=${cand.checkpointId} round=${cand.roundId} rewardsOre=${cand.rewardsOre} lifetimeSol=${cand.lifetimeRewardsSol}`);
+      if (post) console.log(`                 after  ckpt=${post.checkpointId} round=${post.roundId} rewardsOre=${post.rewardsOre} lifetimeSol=${post.lifetimeRewardsSol}`);
+      results['F checkpoint look-ahead returns the settled miner (checkpointId catches up)'] = probe.err === null && !!post && post.checkpointId === cand.roundId;
+    }
+  }
 
   console.log('\nSUMMARY');
   for (const [k, v] of Object.entries(results)) console.log(`  ${v ? 'PASS' : 'FAIL'}  ${k}`);

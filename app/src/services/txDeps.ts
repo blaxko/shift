@@ -1,5 +1,5 @@
 // Real implementations of the flow's injected dependencies (RPC + wallet). Everything decision-making lives in domain/.
-import type { Connection, PublicKey, VersionedTransaction } from '@solana/web3.js';
+import { PublicKey, type Connection, type VersionedTransaction } from '@solana/web3.js';
 import type { FlowDeps } from '../domain/clockInFlow';
 import { loadWalletChainState } from './chain';
 
@@ -14,6 +14,15 @@ export function makeFlowDeps(connection: Connection, owner: PublicKey, signAndSe
       // sigVerify:false — the wallet has not signed yet. Nothing is sent.
       const r = await connection.simulateTransaction(tx, { sigVerify: false, commitment: 'confirmed' });
       return { err: r.value.err, logs: r.value.logs, unitsConsumed: r.value.unitsConsumed };
+    },
+    simulateAccounts: async (tx, addresses) => {
+      const r = await connection.simulateTransaction(tx, { sigVerify: false, commitment: 'confirmed', accounts: { encoding: 'base64', addresses: addresses.map((a) => a.toBase58()) } });
+      return {
+        err: r.value.err,
+        logs: r.value.logs,
+        unitsConsumed: r.value.unitsConsumed,
+        accounts: (r.value.accounts ?? []).map((a) => (a ? { owner: new PublicKey(a.owner), data: Buffer.from(a.data[0], 'base64') } : null)),
+      };
     },
     signAndSend,
     signatureStatus: async (signature) => {

@@ -1,7 +1,8 @@
 // F6 — Payslip. Rebuilt from chain every time (AC-6.1/6.2); the device cache only paints the first frame.
 // "Losses are shown first and in plain language" (headline). NFR-A5: every gain/loss has a sign AND a label.
 import { router, useLocalSearchParams } from 'expo-router'
-import React from 'react'
+import React, { useState } from 'react'
+import { ClockOutPanel } from '@/src/components/ClockOutPanel'
 import { Banner, Btn, Card, H1, H2, P, Row, Screen } from '@/src/components/ui'
 import { formatOre, formatSol, formatSolExact, speakSol } from '@/src/domain/format'
 import { describePayslip } from '@/src/domain/payslipText'
@@ -19,7 +20,8 @@ const STATUS_LABEL: Record<Payslip['status'], string> = {
 
 export default function PayslipScreen() {
   const { shiftId } = useLocalSearchParams<{ shiftId?: string }>()
-  const data = useShiftData()
+  const [payingPrefix, setPayingPrefix] = useState<string | undefined>()
+  const data = useShiftData(payingPrefix ? { payingInSigPrefix: payingPrefix } : undefined)
   const history = data.result?.history ?? []
   const p = (shiftId ? history.find((h) => h.shiftId === shiftId) : undefined) ?? history[0]
 
@@ -38,7 +40,7 @@ export default function PayslipScreen() {
           <P muted>{data.loaded ? 'No shifts found for this wallet yet.' : 'Loading…'}</P>
         </>
       ) : (
-        <PayslipView p={p} />
+        <PayslipView p={p} onPaying={setPayingPrefix} onFinished={() => void data.refresh()} />
       )}
 
       {history.length > 1 && (
@@ -61,7 +63,7 @@ export default function PayslipScreen() {
   )
 }
 
-function PayslipView({ p }: { p: Payslip }) {
+function PayslipView({ p, onPaying, onFinished }: { p: Payslip; onPaying: (prefix: string | undefined) => void; onFinished: () => void }) {
   const t = describePayslip(p)
   const ended = p.status === 'complete' || p.status === 'paid'
   return (
@@ -100,13 +102,8 @@ function PayslipView({ p }: { p: Payslip }) {
         <P muted>Budget {formatSol(p.budgetLamports)} SOL</P>
       </Card>
 
-      {p.status === 'complete' && p.needsClockOut && (
-        <Card>
-          <H2>Clock out &amp; collect</H2>
-          <P muted>Collecting your rewards in one step arrives in the next build.</P>
-          <Btn title="Clock out & collect" disabled accessibilityHint="Not available yet in this build" />
-        </Card>
-      )}
+      {/* Stays mounted while Paying so the flow's status is not lost (reconcile flips the status the moment a clock-out starts). */}
+      {(p.canClockOut || p.status === 'paying') && <ClockOutPanel p={p} onPaying={onPaying} onFinished={onFinished} />}
     </>
   )
 }

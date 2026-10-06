@@ -45,6 +45,7 @@ export const BLOCKHASH = '11111111111111111111111111111111';
 export interface Calls {
   loadState: number;
   simulate: number;
+  simulateAccounts: number;
   signAndSend: number;
   txs: import('@solana/web3.js').VersionedTransaction[];
   sleeps: number;
@@ -58,6 +59,9 @@ export function makeDeps(
   over: Partial<{
     states: ChainResult[]; // returned in order, last one repeats
     sim: SimOutcome;
+    /** post-simulation accounts returned by simulateAccounts (clock-out's checkpoint look-ahead) */
+    simAccounts: ({ owner: PublicKey; data: Uint8Array } | null)[];
+    simAccountsErr: unknown;
     signAndSend: (tx: import('@solana/web3.js').VersionedTransaction) => Promise<string>;
     status: (sig: string, call: number) => SigStatus | null;
     recent: RecentSig[];
@@ -67,7 +71,7 @@ export function makeDeps(
     nowUnix: number;
   }> = {},
 ): { deps: FlowDeps; calls: Calls } {
-  const calls: Calls = { loadState: 0, simulate: 0, signAndSend: 0, txs: [], sleeps: 0 };
+  const calls: Calls = { loadState: 0, simulate: 0, simulateAccounts: 0, signAndSend: 0, txs: [], sleeps: 0 };
   const states = over.states ?? [{ ok: true, state: state() }];
   let height = over.startHeight ?? 1000;
   let statusCalls = 0;
@@ -77,6 +81,10 @@ export function makeDeps(
     simulate: async () => {
       calls.simulate++;
       return over.sim ?? { err: null, logs: [], unitsConsumed: 57_000 };
+    },
+    simulateAccounts: async () => {
+      calls.simulateAccounts++;
+      return { err: over.simAccountsErr ?? null, logs: [], unitsConsumed: 20_000, accounts: over.simAccounts ?? [null] };
     },
     signAndSend: async (tx) => {
       calls.signAndSend++;

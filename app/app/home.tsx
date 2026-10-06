@@ -51,8 +51,8 @@ export default function Home() {
         <Card>
           <H2>Shift complete</H2>
           <P>{describePayslip(cur).headline}</P>
-          <Banner tone="warn">{CLOCK_OUT_NOTICE}.</Banner>
-          <Btn title="See payslip" onPress={() => router.push({ pathname: '/payslip', params: { shiftId: cur.shiftId } })} />
+          {cur.needsClockOut && <Banner tone="warn">{CLOCK_OUT_NOTICE}.</Banner>}
+          <Btn title={cur.canClockOut ? 'Clock out & collect' : 'See payslip'} onPress={() => router.push({ pathname: '/payslip', params: { shiftId: cur.shiftId } })} />
         </Card>
       ) : (
         <Card>

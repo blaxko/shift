@@ -1,10 +1,10 @@
 // F3 — the clock-in state machine. Pure and dependency-injected so every failure path is unit-tested offline.
 // FR-3.1 (conflict check), FR-3.2/AC-3.3 (simulate first), FR-3.3 (confirmation), AC-3.4 + E-3 + E-4 (unknown state ->
 // reconcile before any retry), AC-3.5 (never touch a foreign automation), E-2 (declined signing -> no state change).
-import { extractMemoTexts, parseMemo, stopAutomation, type Automation } from '@shift/codec';
+import { extractMemoTexts, parseMemo, type Automation } from '@shift/codec';
 import { TransactionMessage, VersionedTransaction, type PublicKey, type TransactionInstruction } from '@solana/web3.js';
 import type { ChainResult, WalletChainState } from './chainState';
-import { assertClockInInvariants, assertEndShiftInvariants, buildClockInInstructions, describeSimError } from './clockIn';
+import { assertClockInInvariants, buildClockInInstructions, describeSimError } from './clockIn';
 import { classifyExisting } from './conflict';
 import { checkBalance, costBreakdown } from './costs';
 import { appError, type AppError } from './errors';
@@ -34,6 +34,8 @@ export interface FlowDeps {
   loadState(): Promise<ChainResult>;
   latestBlockhash(): Promise<{ blockhash: string; lastValidBlockHeight: number; contextSlot: number }>;
   simulate(tx: VersionedTransaction): Promise<SimOutcome>;
+  /** Simulate and also return the POST-simulation state of `addresses` (used by clock-out to see what a Checkpoint will credit). */
+  simulateAccounts(tx: VersionedTransaction, addresses: PublicKey[]): Promise<SimOutcome & { accounts: ({ owner: PublicKey; data: Uint8Array } | null)[] }>;
   /** Throws if the user declines or the wallet fails. Returns the signature once the wallet has submitted. */
   signAndSend(tx: VersionedTransaction, minContextSlot: number): Promise<string>;
   signatureStatus(signature: string): Promise<SigStatus | null>;
@@ -51,7 +53,7 @@ export interface ClockInInput {
   tzOffsetMin: number;
 }
 
-export type BlockedReason = 'no-shift' | 'chain-unavailable' | 'maintenance' | 'foreign-automation' | 'shift-active' | 'insufficient-sol';
+export type BlockedReason = 'no-shift' | 'already-paid' | 'chain-unavailable' | 'maintenance' | 'foreign-automation' | 'shift-active' | 'insufficient-sol';
 
 export type ClockInOutcome =
   | { kind: 'success'; signature: string | null; via: 'confirmed' | 'reconciled' }
@@ -190,34 +192,6 @@ export async function submitAndConfirm(a: SubmitArgs): Promise<ClockInOutcome> {
     return { kind: 'failed', retryable: false, error: appError('EXPIRED', "We couldn't confirm it. Check Home before trying again.", 'poll limit reached before blockhash expiry') };
   }
   return { kind: 'failed', retryable: true, error: appError('EXPIRED', "The transaction didn't go through in time. Nothing was taken from your wallet. Please try again.", `blockhash expired at height ${bh.lastValidBlockHeight}`) }; // E-4
-}
-
-/**
- * Early slice of F7 ("End shift early"): stop the automation, which makes ORE close it and return balance + rent to the wallet
- * (automate.rs:87-97). Only ever acts on a SHIFT automation (executor == crank, AC-3.5 spirit). Claims + OUT memo come in Phase 6.
- */
-export async function runEndShift(
-  input: { owner: PublicKey; crank: PublicKey },
-  deps: FlowDeps,
-  onStatus: (s: FlowStatus) => void = () => undefined,
-): Promise<ClockInOutcome | { kind: 'blocked'; reason: 'no-shift' }> {
-  onStatus('checking');
-  const loaded = await deps.loadState();
-  if (!loaded.ok) return { kind: 'blocked', reason: loaded.error.code === 'LAYOUT_MISMATCH' ? 'maintenance' : 'chain-unavailable', error: loaded.error };
-  const a = loaded.state.automation;
-  if (!a) return { kind: 'blocked', reason: 'no-shift' };
-  if (!a.executor.equals(input.crank)) return { kind: 'blocked', reason: 'foreign-automation' }; // never touch what isn't ours
-  const ix = stopAutomation(input.owner);
-  assertEndShiftInvariants([ix], input.owner);
-  const startedAtUnix = deps.nowUnix();
-  return submitAndConfirm({
-    deps,
-    owner: input.owner,
-    instructions: [ix],
-    onStatus,
-    startedAtUnix,
-    isDone: ({ state: st }) => ({ found: st.automation === null, signature: null }),
-  });
 }
 
 type Waited = { kind: 'confirmed' } | { kind: 'tx-error'; err: unknown } | { kind: 'expired' } | { kind: 'gave-up' };

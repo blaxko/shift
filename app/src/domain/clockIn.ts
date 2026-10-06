@@ -134,18 +134,6 @@ export function assertClockInInvariants(ixs: TransactionInstruction[], p: { owne
   if (!memos[0]!.keys.every((k) => k.pubkey.equals(owner) && k.isSigner)) bad('NFR-S2', 'memo may only be signed by the wallet');
 }
 
-/** The early end-shift transaction must be exactly one stop instruction for the connected wallet's own automation. */
-export function assertEndShiftInvariants(ixs: TransactionInstruction[], owner: PublicKey): void {
-  const bad = (detail: string): never => {
-    throw new InvariantViolation('AC-3.5', detail);
-  };
-  if (ixs.length !== 1) bad('end shift is exactly one instruction');
-  const s = ixs[0]!;
-  if (!s.programId.equals(ORE_PROGRAM_ID) || s.data.length !== 66 || s.data[0] !== 0 || s.data.subarray(1, 33).some((b) => b !== 0)) bad('not a zeroed stop instruction');
-  if (!s.keys[2]!.pubkey.equals(PublicKey.default)) bad('stop must use the default executor');
-  if (!s.keys[0]!.pubkey.equals(owner) || !s.keys[0]!.isSigner || !s.keys[1]!.pubkey.equals(pdas.automation(owner))) bad('stop must target the connected wallet own automation');
-}
-
 /** AC-3.3: turn a failed simulation into a readable, typed error (never raw RPC text; that goes in `detail`). */
 export function describeSimError(err: unknown, logs: string[] | null | undefined): AppError {
   const detail = JSON.stringify({ err, logs: (logs ?? []).slice(-6) });

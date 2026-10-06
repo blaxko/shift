@@ -49,8 +49,15 @@ export interface Payslip {
   unsettledRound: boolean;
   /** An older shift that was never clocked out and was followed by a newer clock-in. */
   superseded: boolean;
-  /** AC-6.5: Complete and not clocked out. Home + Payslip show "Clock out within 24 h to keep your final round's rewards". */
+  /** The unsettled round is one in which the Miner actually deployed, i.e. there are rewards that expire if never checkpointed (checkpoint.rs:52-57). */
+  rewardsAtStake: boolean;
+  /**
+   * AC-6.5 (PRD v1.6): Complete, not clocked out, AND rewards at stake. Only then do Home + Payslip show "Clock out within 24 h to keep your
+   * final round's rewards". A shift with nothing unchecked (e.g. 0 rounds) must never nag.
+   */
   needsClockOut: boolean;
+  /** The latest shift, not yet paid or being paid: Clock out / End shift can be run on it (a 0-round shift can be closed out too; it just records PAID). */
+  canClockOut: boolean;
 
   /** Live automation balance (active / paused / paying only). */
   balanceLeftLamports: bigint | null;

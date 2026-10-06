@@ -87,6 +87,9 @@ export function reconcile(input: ReconcileInput): ReconcileResult {
     else status = 'complete';
 
     const live = status === 'active' || status === 'paused' || status === 'paying';
+    // An unchecked round is only a risk if the Miner deployed in it (otherwise there is nothing to forfeit).
+    const unsettledRound = isLatest && !!snapshot.miner && snapshot.miner.checkpointId !== snapshot.miner.roundId;
+    const rewardsAtStake = unsettledRound && snapshot.miner!.deployed.some((x) => x > 0n);
     return {
       shiftId: inn.signature,
       status,
@@ -110,9 +113,11 @@ export function reconcile(input: ReconcileInput): ReconcileResult {
       setupCost: inn.setupLamports,
       netSol,
       claimedElsewhere,
-      unsettledRound: isLatest && !!snapshot.miner && snapshot.miner.checkpointId !== snapshot.miner.roundId,
+      unsettledRound,
+      rewardsAtStake,
       superseded: !isLatest && !out,
-      needsClockOut: isLatest && status === 'complete', // AC-6.5
+      needsClockOut: isLatest && status === 'complete' && rewardsAtStake, // AC-6.5 (v1.6)
+      canClockOut: isLatest && !out && status !== 'paying',
       balanceLeftLamports: live && snapshot.automation ? snapshot.automation.balance : null,
       estimatedSecondsLeft: status === 'active' ? Math.max(0, plannedRounds - roundsWorked) * roundSeconds : null,
     };

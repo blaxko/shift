@@ -113,13 +113,67 @@ describe('Paused (crank unhealthy)', () => {
 });
 
 describe('Complete (AC-5.3, E-17, AC-6.5)', () => {
-  it('automation closed/absent and no OUT -> complete, needs clock-out', () => {
+  it('automation closed/absent and no OUT -> complete', () => {
     const p = run({ memos: [inMemo()], snapshot: { automation: null, miner: minerAfter(46) } }).current!;
     expect(p.status).toBe('complete');
-    expect(p.needsClockOut).toBe(true); // AC-6.5: Home + Payslip show the 24 h notice
     expect(p.roundsWorked).toBe(46);
+    expect(p.canClockOut).toBe(true);
     expect(p.balanceLeftLamports).toBeNull();
     expect(p.estimatedSecondsLeft).toBeNull();
+  });
+
+  describe('AC-6.5 (PRD v1.6): the 24 h notice only when rewards are actually at stake', () => {
+    const deployedSome = (() => {
+      const d = new Array<bigint>(25).fill(0n);
+      d[0] = 43_378n;
+      return d;
+    })();
+    const noDeploy = new Array<bigint>(25).fill(0n);
+
+    it('unchecked final round in which the miner deployed -> notice', () => {
+      const p = run({ memos: [inMemo()], snapshot: { automation: null, miner: minerAfter(46, { roundId: 102n, checkpointId: 101n, deployed: deployedSome }) } }).current!;
+      expect(p.status).toBe('complete');
+      expect(p.unsettledRound).toBe(true);
+      expect(p.rewardsAtStake).toBe(true);
+      expect(p.needsClockOut).toBe(true);
+    });
+    it('THE S-3 TEST CASE: a 0-round shift (fresh miner, nothing ever deployed or unchecked) must NOT nag, but can still be closed out', () => {
+      const p = run({ memos: [inMemo()], snapshot: { automation: null, miner: minerAfter(0, { roundId: 0n, checkpointId: 0n, deployed: noDeploy }) } }).current!;
+      expect(p.status).toBe('complete');
+      expect(p.roundsWorked).toBe(0);
+      expect(p.needsClockOut).toBe(false);
+      expect(p.rewardsAtStake).toBe(false);
+      expect(p.canClockOut).toBe(true); // closing it out just records PAID
+    });
+    it('unchecked round but the miner deployed nothing in it -> nothing to forfeit, no notice', () => {
+      const p = run({ memos: [inMemo()], snapshot: { automation: null, miner: minerAfter(0, { roundId: 102n, checkpointId: 101n, deployed: noDeploy }) } }).current!;
+      expect(p.unsettledRound).toBe(true);
+      expect(p.needsClockOut).toBe(false);
+    });
+    it('all rounds already checkpointed (even with 46 rounds played) -> no notice: waiting costs nothing', () => {
+      const p = run({ memos: [inMemo()], snapshot: { automation: null, miner: minerAfter(46, { deployed: deployedSome }) } }).current!;
+      expect(p.unsettledRound).toBe(false);
+      expect(p.needsClockOut).toBe(false);
+    });
+    it('never shown for an active shift, a paid shift, or no miner', () => {
+      const at = { roundId: 102n, checkpointId: 101n, deployed: deployedSome };
+      expect(run({ memos: [inMemo()], snapshot: { automation: ourAutomation(BUDGET), miner: minerAfter(1, at) } }).current!.needsClockOut).toBe(false);
+      expect(run({ memos: [inMemo(), outMemo()], snapshot: { automation: null, miner: minerAfter(1, at) } }).history[0]!.needsClockOut).toBe(false);
+      expect(run({ memos: [inMemo()], snapshot: { automation: null, miner: null } }).current!.needsClockOut).toBe(false);
+    });
+  });
+
+  describe('canClockOut: the latest unpaid shift can be closed out in any non-paying state', () => {
+    it.each([
+      ['active', { automation: ourAutomation(BUDGET), miner: minerAfter(1) }, true],
+      ['complete', { automation: null, miner: minerAfter(0) }, true],
+    ] as const)('%s -> %s', (_n, snapshot, expected) => {
+      expect(run({ memos: [inMemo()], snapshot }).current!.canClockOut).toBe(expected);
+    });
+    it('not while paying, not once paid, not for superseded shifts', () => {
+      expect(run({ memos: [inMemo()], local: { payingInSigPrefix: IN_SIG.slice(0, 16) }, snapshot: { automation: null, miner: minerAfter(0) } }).current!.canClockOut).toBe(false);
+      expect(run({ memos: [inMemo(), outMemo()], snapshot: { automation: null, miner: minerAfter(0) } }).history[0]!.canClockOut).toBe(false);
+    });
   });
   it('E-17: leftover below one round is Complete even if the account lingers', () => {
     const p = run({ memos: [inMemo()], snapshot: { automation: ourAutomation(SPEND - 1n), miner: minerAfter(46) } }).current!;
@@ -212,7 +266,8 @@ describe('several shifts: history never double-counts', () => {
     const [latest, older] = r.history as [(typeof r.history)[0], (typeof r.history)[0]];
     expect(older.status).toBe('complete');
     expect(older.superseded).toBe(true);
-    expect(older.needsClockOut).toBe(false); // only the LATEST nags (AC-6.5)
+    expect(older.needsClockOut).toBe(false); // only the LATEST can nag (AC-6.5)
+    expect(older.canClockOut).toBe(false);
     expect(older.roundsWorked).toBe(10);
     expect(older.solWon).toBe(3_000_000n);
     expect(older.oreEarned).toBe(777n); // pending at the next clock-in minus its own baseline

@@ -1,11 +1,12 @@
 // React wrapper around the guarded flows: one run at a time (re-entrancy guard), live status for the UI.
 import { useCallback, useRef, useState } from 'react';
 import { CRANK_PUBKEY } from '../config/constants';
-import { runClockIn, runEndShift, type ClockInInput, type ClockInOutcome, type FlowStatus } from '../domain/clockInFlow';
+import { runClockIn, type ClockInInput, type ClockInOutcome, type FlowStatus } from '../domain/clockInFlow';
+import { runClockOut } from '../domain/clockOutFlow';
 import { makeFlowDeps } from './txDeps';
 import { useShiftWallet } from './wallet';
 
-export type FlowOutcome = Awaited<ReturnType<typeof runEndShift>>;
+export type FlowOutcome = ClockInOutcome;
 
 export function useFlow() {
   const { address, connection, signAndSend } = useShiftWallet();
@@ -44,14 +45,15 @@ export function useFlow() {
     [address, connection, signAndSend, guarded],
   );
 
-  const endShift = useCallback(
-    () =>
+  /** Clock out & collect, and "End shift & withdraw" on an active shift: the same single transaction (AC-7.1, AC-7.3). */
+  const clockOut = useCallback(
+    (inSignature: string) =>
       guarded(async () => {
         if (!address || !CRANK_PUBKEY) throw new Error('wallet or executor key not configured');
-        return runEndShift({ owner: address, crank: CRANK_PUBKEY }, makeFlowDeps(connection, address, signAndSend), setStatus);
+        return runClockOut({ owner: address, crank: CRANK_PUBKEY, inSignature }, makeFlowDeps(connection, address, signAndSend), setStatus);
       }),
     [address, connection, signAndSend, guarded],
   );
 
-  return { status, outcome, error, clockIn, endShift, reset: () => { setOutcome(null); setError(null); } };
+  return { status, outcome, error, clockIn, clockOut, reset: () => { setOutcome(null); setError(null); } };
 }

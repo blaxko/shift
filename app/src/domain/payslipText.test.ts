@@ -27,7 +27,9 @@ const base: Payslip = {
   claimedElsewhere: false,
   unsettledRound: false,
   superseded: false,
+  rewardsAtStake: false,
   needsClockOut: false,
+  canClockOut: false,
   balanceLeftLamports: null,
   estimatedSecondsLeft: null,
 };

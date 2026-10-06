@@ -1,7 +1,7 @@
 import { MEMO_PROGRAM_ID, ORE_PROGRAM_ID, formatInMemo } from '@shift/codec';
 import { describe, expect, it } from 'vitest';
 import type { ChainResult } from './chainState';
-import { findOurShift, runClockIn, runEndShift, type FlowStatus, type RecentSig } from './clockInFlow';
+import { findOurShift, runClockIn, type FlowStatus, type RecentSig } from './clockInFlow';
 import { appError } from './errors';
 import { BLOCKHASH, FUNDED_FOREIGN, IDLE_SHELL, RENT_AUTOMATION, RENT_MINER, crank, input, makeDeps, owner, plan, state } from './chainFixtures.testkit';
 
@@ -176,47 +176,5 @@ describe('findOurShift (pure reconcile)', () => {
     expect(findOurShift({ ...base, state: state(), recent: [r({ blockTime: 1_789_000_000 })] }).found).toBe(false);
     expect(findOurShift({ ...base, state: state(), recent: [r({ err: { InstructionError: [0, 'x'] } })] }).found).toBe(false);
     expect(findOurShift({ ...base, state: state(), recent: [r({ memo: '[5] hello' })] }).found).toBe(false);
-  });
-});
-
-describe('runEndShift (early slice of F7): stop returns balance + rent', () => {
-  it('stops a SHIFT automation with exactly one stop instruction', async () => {
-    const { deps, calls } = makeDeps({ states: [okState({ automation: autoOurs() })] });
-    const r = await runEndShift({ owner, crank }, deps);
-    expect(r).toMatchObject({ kind: 'success', via: 'confirmed' });
-    expect(calls.signAndSend).toBe(1);
-    const tx = calls.txs[0]!;
-    expect(tx.message.compiledInstructions).toHaveLength(1);
-    const d = Buffer.from(tx.message.compiledInstructions[0]!.data);
-    expect(d.length).toBe(66);
-    expect(d.subarray(1, 33).every((b) => b === 0)).toBe(true); // all numeric fields zero: no funds can be added or moved elsewhere
-  });
-  it('no automation -> nothing to end, wallet never opened', async () => {
-    const { deps, calls } = makeDeps({ states: [okState()] });
-    expect(await runEndShift({ owner, crank }, deps)).toEqual({ kind: 'blocked', reason: 'no-shift' });
-    expect(calls.signAndSend + calls.simulate).toBe(0);
-  });
-  it('a foreign automation is NEVER touched (not ours: executor != crank)', async () => {
-    const { deps, calls } = makeDeps({ states: [okState({ automation: { ...FUNDED_FOREIGN, authority: owner } })] });
-    expect(await runEndShift({ owner, crank }, deps)).toEqual({ kind: 'blocked', reason: 'foreign-automation' });
-    expect(calls.signAndSend + calls.simulate).toBe(0);
-  });
-  it('simulation failure never opens the wallet', async () => {
-    const { deps, calls } = makeDeps({ states: [okState({ automation: autoOurs() })], sim: { err: 'AccountNotFound', logs: null } });
-    expect((await runEndShift({ owner, crank }, deps)).kind).toBe('simulation-failed');
-    expect(calls.signAndSend).toBe(0);
-  });
-  it('declined in the wallet -> cancelled', async () => {
-    const { deps } = makeDeps({ states: [okState({ automation: autoOurs() })], signAndSend: async () => { throw Object.assign(new Error('no'), { code: -3 }); } });
-    expect(await runEndShift({ owner, crank }, deps)).toEqual({ kind: 'cancelled' });
-  });
-  it('unknown send state: success only if the automation is really gone; never a second submit', async () => {
-    const drop = async () => { throw new Error('session closed'); };
-    let { deps, calls } = makeDeps({ states: [okState({ automation: autoOurs() }), okState()], signAndSend: drop, lastValid: 1050, heightStep: 30 });
-    expect(await runEndShift({ owner, crank }, deps)).toMatchObject({ kind: 'success', via: 'reconciled' });
-    expect(calls.signAndSend).toBe(1);
-    ({ deps, calls } = makeDeps({ states: [okState({ automation: autoOurs() }), okState({ automation: autoOurs() })], signAndSend: drop, lastValid: 1050, heightStep: 30 }));
-    expect(await runEndShift({ owner, crank }, deps)).toMatchObject({ kind: 'failed', retryable: true });
-    expect(calls.signAndSend).toBe(1);
   });
 });

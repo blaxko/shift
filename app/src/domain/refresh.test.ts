@@ -1,4 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { fileURLToPath } from 'node:url';
 import { ORE_MINT, ORE_PROGRAM_ID, formatInMemo, formatOutMemo } from '@shift/codec';
 import { Keypair, PublicKey } from '@solana/web3.js';
 import { describe, expect, it } from 'vitest';
@@ -20,9 +23,6 @@ const sig = (signature: string, blockTime: number, memo: string | null, err: unk
 
 // Account bytes for the Miner fixture, re-owned to this wallet: encode by re-using the fixture bytes is not possible after decode,
 // so the fake serves the raw fixture accounts (any authority is fine: refresh only decodes and reads counters).
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 const fxRaw = (n: string): AccountLite => ({ owner: ORE_PROGRAM_ID, data: Buffer.from(JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'packages', 'codec', 'test', 'fixtures', n), 'utf8')).dataBase64, 'base64') });
 const MINER_RAW = fxRaw('miner-9MbHiQxn.json');
 const WALLET_RAW: AccountLite = { owner: PublicKey.default, data: new Uint8Array(0), lamports: 50_000_000 };

@@ -1,7 +1,7 @@
 // Shared UI primitives. NFR-A1 (48 dp targets), NFR-A2 (labels), NFR-A3 (>= 4.5:1 contrast, light + dark),
 // NFR-A4 (layout flows at large font scale: no fixed heights on text), NFR-A5 (never colour alone).
 import React, { type ReactNode } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, useColorScheme, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, useColorScheme, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CLUSTER, IS_MAINNET } from '../config/constants';
 
@@ -14,11 +14,15 @@ export function useTheme() {
   return palette[useColorScheme() === 'dark' ? 'dark' : 'light'];
 }
 
-export function Screen({ children }: { children: ReactNode }) {
+export function Screen({ children, onRefresh, refreshing }: { children: ReactNode; onRefresh?: () => void; refreshing?: boolean }) {
   const t = useTheme();
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }}>
-      <ScrollView contentContainerStyle={s.pad} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={s.pad}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={onRefresh ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} /> : undefined}
+      >
         {!IS_MAINNET && (
           <View style={[s.badge, { borderColor: t.warn }]} accessible accessibilityLabel={`Warning: not on mainnet. Cluster ${CLUSTER}`}>
             <Text style={{ color: t.warn, fontWeight: '700' }}>DEVNET — not real ORE</Text>
@@ -167,3 +171,16 @@ const s = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', minHeight: 28 },
   badge: { borderWidth: 2, borderRadius: 8, padding: 8, alignItems: 'center' },
 });
+
+/** Progress as a bar with a text equivalent (NFR-A2/A5): the numbers are always spelled out next to it. */
+export function ProgressBar({ value, max, label }: { value: number; max: number; label: string }) {
+  const t = useTheme();
+  const pct = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0;
+  return (
+    <View accessible accessibilityRole="progressbar" accessibilityLabel={label} accessibilityValue={{ min: 0, max, now: Math.min(value, max) }}>
+      <View style={{ height: 14, borderRadius: 7, backgroundColor: t.card, borderWidth: 1, borderColor: t.border, overflow: 'hidden' }}>
+        <View style={{ width: `${pct}%`, height: '100%', backgroundColor: t.primary }} />
+      </View>
+    </View>
+  );
+}

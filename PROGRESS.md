@@ -1,5 +1,17 @@
 # Progress
 
+## 2026-10-06 Phase 5 — reconciler, payslip, active screen (built + unit-verified; AWAITING device S-4)
+- Done (384 unit tests green; app tsc + expo lint clean; Metro bundles 1825 modules):
+  - Executor public key F5YF...m4Ucm set in app/eas.json (smoke + release) and committed; wallet shows 0 SOL (needs funding before any go-live). OQ-7 accepted / OQ-8 resolved; PRD v1.5: AC-6.5 + AC-8.1 copy + P2 feature F14.
+  - domain/reconcile.ts: pure state machine (pending/active/paused/complete/paying/paid) + payslip formulas on Miner lifetime counters; older shifts end at the next clock-in baselines (no double counting); AC-6.3 (ORE counter drop -> claimedElsewhere, never negative), E-7 earlier rewards, E-17, E-25, deployed clamped to budget. 30 fixture tests incl. every state.
+  - domain/refresh.ts: <=3 RPC calls (steady state 2: accounts incl. wallet balance + incremental signatures with until=lastSeenSig; +1 only for a NEW clock-out to learn the ORE it delivered), 60-day backfill on an empty cache, paging only on full pages, cursor advances only after full success, wallet-keyed SQLite cache (real SQL tested via node:sqlite), cached fallback on any failure (AC-5.2), LAYOUT_MISMATCH -> maintenance (E-11). 26 tests.
+  - UI: Home (no shift / running / complete + AC-6.5 notice), Active (progress bar+text, time left, balance, ~live returns, Paused text, Complete -> "Shift complete — see payslip" AC-5.3, pending clock-in handling, early end-shift), Payslip (losses first, sign+label net, PAID, history). Cache-first paint, refresh on focus / pull / every 30 s foreground only.
+  - scripts/payslip-check.ts (read-only AC-6.1 helper; same code path as the app, in-memory cache == the reinstall path).
+- AC status: AC-6.4 PASSING (pure fixture-tested reconcile); AC-6.3 logic PASSING (unit); NFR-P3 call budget PASSING (unit, counted); AC-6.5 copy unit-tested, display pending device. Device pending S-4: AC-5.1, AC-5.2, AC-5.3, AC-6.1, AC-6.2, AC-6.5.
+- Deviations to note: progress is a bar with text (no react-native-svg dependency; PRD says ring); PRD schema gap fixed (cache keyed by wallet); paid-shift ORE is NET of ORE fee read from the OUT tx (unpaid is gross) and labelled accordingly.
+- Not yet: crank status for Paused comes from /health (F11, P1): reconcile supports it and is tested, the app passes crankStatus unknown. Clock out (Phase 6) is a disabled button.
+- Next: Phase 6 clock-out (Checkpoint if needed + ClaimORE + ClaimSOL only if >0 + close if open + OUT memo in one tx) — can proceed in parallel with your S-3/S-4 runs.
+
 ## 2026-10-06 Phase 4 — crank (built, DRY-RUN ONLY; nothing sent, no key generated or handled)
 - Done (319 unit tests green, tsc + eslint clean):
   - crank/src: config (dry-run default; live needs DRY_RUN=0 AND ACKNOWLEDGE_LIVE; secret dropped in dry-run; bad keys never echoed; RPC URL path/query never logged), plan (Preferred only, funded for one round, never creates a Miner, checkpoint-before-deploy, "waiting" round is open), batch (greedy packing under the 1232-byte limit, runtime guard assertCrankInstructions), submit (DryRunSubmitter structurally cannot send; LiveSubmitter exists but is unreachable without both locks), health (/health incl. roundStalled, lowBalance, slotLag), loop (never throws, failure isolation, stateless restart).

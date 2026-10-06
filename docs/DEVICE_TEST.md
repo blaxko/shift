@@ -118,3 +118,27 @@ Expected cost of this whole test (rent is read live, so these are for 2026-10-06
 
 ### Please report back
 Pass/fail for S-3.1 … S-3.9, the wallet balance **before / after clock-in / after end shift** (so I can check the cost arithmetic to the lamport), the explorer link or signature of the clock-in and of the end-shift transactions, device + Android version, and any red text verbatim.
+
+---
+
+## S-4 — Phase 5: reconcile, payslip, active screen (F5, F6; AC-5.1-5.3, AC-6.1, AC-6.2, AC-6.5)
+
+**Build:** same as S-1/S-3 (`git pull`, `cd app`, `eas build --platform android --profile smoke`). Run this AFTER S-3. Because the crank is dry-run only, **no rounds are played** yet: a shift shows 0 of 46 rounds. That still exercises every screen and the rebuild-from-chain logic; the "rounds counting up" part is checked in the live crank test (AC-4.1) later.
+
+**Best starting point:** the wallet from S-3 where you clocked in and ended the shift early. Its IN memo is on chain with no OUT, so the app should treat it as **Complete, not collected**.
+
+| ID | AC | Step | Expected | Result |
+|---|---|---|---|---|
+| S-4.1 | AC-6.5, AC-5.3 | Open the app (wallet from S-3, shift already ended) | Home shows **Shift complete**, a sentence starting "You put in 0.0200 SOL. You got back …", and an amber **"Clock out within 24 h to keep your final round's rewards."** with **See payslip** | |
+| S-4.2 | F6 | Tap **See payslip** | Title "Payslip"; headline "You put in 0.0200 SOL. You got back 0.0200 SOL." (0 rounds were played: the whole budget came back); **Net loss −0.0044804 SOL** (the one-time setup; the sign AND the words are shown); Details: Rounds worked 0 of 46, SOL played 0.00, Executor fees 0.00, Unspent budget returned 0.02, **One-time setup — not refundable 0.0044804 SOL**; the note "Network fees are not included."; a disabled **Clock out & collect** ("arrives in the next build") | |
+| S-4.3 | AC-5.1 | Force-stop the app, reopen | Home is painted from the saved copy within ~1 s, then refreshes; the numbers do not change | |
+| S-4.4 | AC-6.1 | Send me the wallet address shown on Home (or copy it from your wallet). I run `scripts/payslip-check.ts` on it | My read of the raw Miner counters and memo ledger produces the same payslip numbers you see (to the lamport) | |
+| S-4.5 | AC-5.2, E-12 | Airplane mode on, pull down to refresh on Home | An amber banner "Couldn't refresh. Showing your last saved view. Last updated HH:MM" and the same figures; no crash. Airplane off + pull to refresh: banner disappears | |
+| S-4.6 | AC-6.2 | **Clear data** (Settings → Apps → SHIFT → Storage → Clear data) **or uninstall and reinstall**, reconnect your wallet | Home again shows **Shift complete** and the same payslip numbers as S-4.2. (The app rebuilt everything from the last 60 days of memos on chain.) | |
+| S-4.7 | F5 | Start a new shift (0.02 SOL) and approve | **Your shift is running**: Rounds worked **0 of 46**, a progress bar with the words next to it, **Time left about 59 min**, Budget left 0.0200 SOL, "Returned by ORE so far (≈ live)" 0.00, ORE 0.0000. The earlier shift now appears under "Earlier shifts" on the Payslip screen | |
+| S-4.8 | F5 | On the running shift, force-stop the app and reopen | Still **Your shift is running** (the chain is the truth); no duplicate shift | |
+| S-4.9 | F5 | Pull to refresh; also leave the screen open ~1 minute | "Updated HH:MM:SS" changes (30 s foreground refresh); nothing refreshes while the app is in the background | |
+| S-4.10 | F7-early | **End shift & withdraw** → confirm → approve | "Shift ended", then **Shift complete** state with the 24 h notice. Payslip for the second shift: net loss = setup cost only (0 for this one: the Miner already exists, so **0.00 SOL**) → label "Break-even" | |
+
+### Please report back
+Pass/fail for S-4.1 … S-4.10, the Payslip numbers you see (headline, net, setup line) and your wallet address for S-4.4. For S-4.6 tell me how long the rebuild took.

@@ -1,70 +1,65 @@
-// Home — no-shift state (Phase 2). Active / complete states arrive with F5/F6.
-import { Redirect, router, useFocusEffect } from 'expo-router'
-import { CRANK_PUBKEY } from '@/src/config/constants'
-import React, { useCallback, useState } from 'react'
-import { Banner, Btn, Card, H1, H2, P, Row, Screen } from '@/src/components/ui'
-import { formatSol, speakSol } from '@/src/domain/format'
-import { loadWalletChainState, type WalletChainState } from '@/src/services/chain'
+// Home: today's state (PRD §7). No shift / running / complete (with the AC-6.5 notice). Values come from reconcile(); the cache only
+// paints the first frame and covers a failed refresh (AC-5.2).
+import { Redirect, router } from 'expo-router'
+import React from 'react'
+import { Banner, Btn, Card, H1, H2, P, ProgressBar, Row, Screen } from '@/src/components/ui'
+import { describePayslip, CLOCK_OUT_NOTICE } from '@/src/domain/payslipText'
+import { formatSecondsLeft, formatSol, speakSol } from '@/src/domain/format'
+import { useShiftData } from '@/src/services/useShiftData'
 import { useShiftWallet } from '@/src/services/wallet'
 import { ellipsify } from '@/utils/ellipsify'
-import type { AppError } from '@/src/domain/errors'
 
 export default function Home() {
-  const { address, connection, disconnect, ready } = useShiftWallet()
-  const [state, setState] = useState<WalletChainState | null>(null)
-  const [error, setError] = useState<AppError | null>(null)
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!address) return
-      let live = true
-      void loadWalletChainState(connection, address).then((r) => {
-        if (!live) return
-        if (r.ok) {
-          setState(r.state)
-          setError(null)
-        } else setError(r.error)
-      })
-      return () => {
-        live = false
-      }
-    }, [address, connection]),
-  )
+  const { address, disconnect, ready } = useShiftWallet()
+  const data = useShiftData()
+  if (ready && !address) return <Redirect href="/welcome" />
 
   const onDisconnect = async () => {
     await disconnect()
     router.replace('/welcome')
   }
 
-  if (ready && !address) return <Redirect href="/welcome" />
-
-  // A running SHIFT shift (automation run by our executor). Full F5 state machine arrives in Phase 5.
-  const running = !!(state?.automation && CRANK_PUBKEY && state.automation.executor.equals(CRANK_PUBKEY))
+  const cur = data.result?.current
+  const last = data.result?.history[0]
+  const live = cur && (cur.status === 'active' || cur.status === 'paused' || cur.status === 'paying')
 
   return (
-    <Screen>
+    <Screen onRefresh={() => void data.refresh()} refreshing={data.refreshing}>
       <H1>SHIFT</H1>
       {address && (
-        <Row
-          label="Wallet"
-          value={ellipsify(address.toBase58(), 4)}
-          a11yValue={`${address.toBase58().slice(0, 4)} ending ${address.toBase58().slice(-4)}`}
-        />
+        <Row label="Wallet" value={ellipsify(address.toBase58(), 4)} a11yValue={`${address.toBase58().slice(0, 4)} ending ${address.toBase58().slice(-4)}`} />
       )}
-      {state && <Row label="Balance" value={`${formatSol(state.balanceLamports)} SOL`} a11yValue={speakSol(state.balanceLamports)} />}
-      {error && <Banner tone="warn">{error.userMessage}</Banner>}
+      {data.balanceLamports !== null && <Row label="Balance" value={`${formatSol(data.balanceLamports)} SOL`} a11yValue={speakSol(data.balanceLamports)} />}
+      {data.stale && (
+        <Banner tone="warn">
+          {data.error?.userMessage ?? "Couldn't refresh."}
+          {data.updatedAt ? ` Last updated ${new Date(data.updatedAt * 1000).toLocaleTimeString()}.` : ''}
+        </Banner>
+      )}
 
-      {running ? (
+      {live ? (
         <Card>
-          <H2>Your shift is running</H2>
-          <P muted>ORE is placing your bets round by round.</P>
+          <H2>{cur.status === 'paused' ? 'Your shift is paused' : cur.status === 'paying' ? 'Ending your shift…' : 'Your shift is running'}</H2>
+          <ProgressBar value={cur.roundsWorked} max={cur.plannedRounds} label={`${cur.roundsWorked} of ${cur.plannedRounds} rounds`} />
+          <P muted>
+            {cur.roundsWorked} of {cur.plannedRounds} rounds
+            {cur.estimatedSecondsLeft !== null ? ` · ${formatSecondsLeft(cur.estimatedSecondsLeft)} left` : ''}
+          </P>
           <Btn title="View my shift" onPress={() => router.push('/active')} />
+        </Card>
+      ) : cur?.status === 'complete' ? (
+        <Card>
+          <H2>Shift complete</H2>
+          <P>{describePayslip(cur).headline}</P>
+          <Banner tone="warn">{CLOCK_OUT_NOTICE}.</Banner>
+          <Btn title="See payslip" onPress={() => router.push({ pathname: '/payslip', params: { shiftId: cur.shiftId } })} />
         </Card>
       ) : (
         <Card>
           <H2>No shift today</H2>
           <P muted>Clock in once. ORE works your shift while you are away.</P>
           <Btn title="Start a shift" onPress={() => router.push('/setup')} />
+          {last && <Btn kind="secondary" title="Last payslip" onPress={() => router.push({ pathname: '/payslip', params: { shiftId: last.shiftId } })} />}
         </Card>
       )}
 

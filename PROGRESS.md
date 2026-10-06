@@ -7,7 +7,7 @@
   - Services: SecureStoreAuthCache (token only in expo-secure-store), useShiftWallet (typed connect result, disconnect clears), loadWalletChainState (1 getMultipleAccounts + cached rents).
   - Screens: index gate, Welcome (incl. no-wallet panel + Play Store link), Home (no-shift), Setup + Review card (all FR-2.1 fields), Risks (NFR-RD2), Diagnostics. Clock in is a disabled button: NO signing code exists yet. Removed template demo features (arbitrary sign-message/transaction samples).
 - Not verified on device: everything in docs/DEVICE_TEST.md S-2 (AC-1.1, 1.2, 1.3, 1.4, 2.1-2.3, 2.5 display, a11y NFR-A1-A5 spot checks). AC-1.5 deferred to Phase 3 (needs a signing action).
-- Note for user: with a 0.05 SOL wallet and no Miner, only the 0.02 SOL budget fits (total leaving now 0.02814928 SOL + 0.01 reserve); 0.05 SOL budget needs ~0.0682 SOL.
+- Note for user: with a 0.05 SOL wallet and no Miner, only the 0.02 SOL budget fits (total leaving now 0.02595344 SOL at the 2026-10-06 rent, + 0.01 reserve); 0.05 SOL budget needs ~0.066 SOL.
 - Next: wait for S-2. Then Phase 3 (clock in): needs the crank PUBLIC key (EXPO_PUBLIC_CRANK_PUBKEY) from you; conflict check wiring, simulate, MWA signAndSend, reconcile-before-retry, NFR-S3/S4 invariants.
 
 ## 2026-10-04 Phase 2 task #1 — device smoke build (AWAITING USER DEVICE RESULT, docs/DEVICE_TEST.md S-1)

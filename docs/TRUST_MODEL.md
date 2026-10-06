@@ -38,5 +38,5 @@ Accounts are bound to the user: `miner` must be the PDA of `authority_info` and 
 It cannot touch the user's wallet balance, claim rewards (`claim_sol.rs:13,18`, `claim_ore.rs:66,71` require the authority), or change the automation.
 
 ## What the user signs
-- **Clock-in:** `Automate` (deposit ≤ 0.5 SOL = displayed budget, reload 0) + memo. Rent for Automation (2 004 480 lamports, refunded at close) and Miner (6 124 800 lamports if new) and the 10 000-lamport checkpoint reserve are paid in addition and shown on the review card.
+- **Clock-in:** `Automate` (deposit ≤ 0.5 SOL = displayed budget, reload 0) + memo. Rent for the Automation account (refunded at close) and for the Miner (only if new; not refunded) and the 10 000-lamport checkpoint reserve (not refunded) are paid in addition and shown on the review card. Rent is read live from the chain (it is a cluster parameter that changes; 1 463 040 and 4 470 400 lamports on 2026-10-06).
 - **Clock-out:** Checkpoint (if needed) + ClaimORE (+ ClaimSOL only if > 0) + close (if still open) + OUT memo.

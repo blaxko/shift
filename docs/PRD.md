@@ -4,7 +4,7 @@
 
 | Field | Value |
 |---|---|
-| Status | v1.2, build-ready. Items marked **[VERIFY]** must be confirmed in source before the dependent code is written |
+| Status | v1.3, build-ready. Items marked **[VERIFY]** must be confirmed in source before the dependent code is written |
 | Owner | Solo builder (product, engineering, demo) |
 | Builder | Human + Claude Code (see `shift-claude-code-prompt.md`) |
 | Target | CLOCK IN hackathon (Solana Mobile × Radiants): Mobile track + ORE matched prize |
@@ -17,6 +17,7 @@
 | 4 Oct 2026 | 1.0 | First build-ready version |
 | 4 Oct 2026 | 1.1 | Phase 0 discovery (ORE_NOTES.md, ore-api 3.8.25 @ 48c203bd): (1) crank also sends **Checkpoint** — FR-4.3 / AC-4.5 / NFR-S6 reworded; (2) payslip rebuilt on Miner lifetime counters because ORE auto-returns SOL and auto-closes depleted automations — IN memo, F6 formulas, state machine, AC-5.3, AC-7.2, E-17 changed; (3) idle shell automation (balance 0, executor = owner) may be closed + replaced in one tx — FR-3.1 / AC-3.5 / E-6; (4) executor fee 1 000 lamports/round, MIN_PER_SQUARE 1 000, fee ≤ 5 % rule in planShift, ROUND_SECONDS = 78 measured; (5) Reset relies on ORE bots, crank `/health` reports stalled rounds; (6) wallet layer = `@wallet-ui/react-native-web3js` (MWA + Seed Vault); README must say so. Q-1…Q-7 answered; OQ-1…OQ-5 resolved |
 | 4 Oct 2026 | 1.2 | (1) Source-verified that the 10 000-lamport checkpoint reserve and the Miner rent are **not refundable** (ORE_NOTES §7.12): FR-2.1 breakdown labels each cost Refundable / Not refundable, new AC-2.5; IN memo gains `setupLamports`; payslip nets setup cost. (2) New AC-4.6: end-of-shift run-down test (rent safety near zero balance). (3) Phase 2 starts with a device smoke build (docs/DEVICE_TEST.md S-1) |
+| 6 Oct 2026 | 1.3 | Device S-2 finding: rent is a cluster parameter and changed (6960 → 5080 lamports/byte between 4 and 6 Oct). The app reads rent live only (no constants, drift tests added); amounts in this PRD are examples as of 6 Oct. Budget line copy changed to "at risk (unspent part returned)" |
 
 ---
 
@@ -189,9 +190,9 @@ Calculation (pure function `planShift`):
 
 Functional requirements:
 - FR-2.1: The review card shows the role, budget, **"Max you can lose: {budget} SOL"**, estimated rounds, estimated end time, **total executor fee and the fee as a % of the budget**, and an itemised **cost breakdown, each line labelled Refundable or Not refundable** (amounts are read from the chain, not hard-coded):
-  - Shift budget — returned if unspent (the **max-loss figure**);
-  - Automation account rent 0.00200448 SOL — **Refundable** (returned when ORE closes the automation);
-  - Miner account rent 0.0061248 SOL — **Not refundable**; shown only if the wallet has no ORE Miner yet; reused by all later shifts;
+  - Shift budget — labelled **"at risk (unspent part returned)"**; this is the **max-loss figure** and its wording is unchanged ("Max you can lose");
+  - Automation account rent (read live; 0.00146304 SOL on 2026-10-06) — **Refundable** (returned when ORE closes the automation);
+  - Miner account rent (read live; 0.0044704 SOL on 2026-10-06) — **Not refundable**; shown only if the wallet has no ORE Miner yet; reused by all later shifts;
   - Checkpoint reserve 0.00001 SOL — **Not refundable**; shown only if the Miner's reserve is 0;
   - Executor fees — total and % of budget (paid out of the budget);
   - Network fee for the transaction;
@@ -203,7 +204,7 @@ Acceptance criteria:
 - **AC-2.1** WHEN any role/budget/length combination is selected THE APP SHALL display a max-loss figure equal to the budget, to 4 decimal places.
 - **AC-2.2** WHEN the per-square amount is below `MIN_PER_SQUARE` or the fee exceeds 5 % of per-round spend THE APP SHALL reduce the rounds and show "Shortened to {n} rounds" with the reason.
 - **AC-2.3** WHEN the wallet balance is insufficient THE APP SHALL disable Clock in and show the amount needed.
-- **AC-2.5** WHEN the review card is shown THE APP SHALL label every cost line Refundable or Not refundable; the Miner-rent and checkpoint-reserve lines SHALL appear only when they will actually be charged (no Miner / reserve 0) and be omitted otherwise.
+- **AC-2.5** WHEN the review card is shown THE APP SHALL label every cost line Refundable or Not refundable (the budget line instead reads "at risk (unspent part returned)"); the Miner-rent and checkpoint-reserve lines SHALL appear only when they will actually be charged (no Miner / reserve 0) and be omitted otherwise.
 - **AC-2.4** `planShift` SHALL have unit tests covering every preset combination, the `MIN_PER_SQUARE` boundary and the 5 % fee boundary.
 
 ### F3 — Clock in

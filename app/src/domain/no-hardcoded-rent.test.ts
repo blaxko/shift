@@ -17,7 +17,7 @@ function* files(dir: string): Generator<string> {
     if (statSync(p).isDirectory()) {
       if (name === 'node_modules' || name === 'dist') continue;
       yield* files(p);
-    } else if (/\.(ts|tsx)$/.test(name) && !/\.test\.(ts|tsx)$/.test(name)) yield p;
+    } else if (/\.(ts|tsx)$/.test(name) && !/\.test\.(ts|tsx)$/.test(name) && !/\.testkit\.ts$/.test(name)) yield p; // test data may name rent values, labelled as such
   }
 }
 

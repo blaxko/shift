@@ -1,15 +1,10 @@
 // Chain reads for the setup flow. NFR-P3: one getMultipleAccounts call (+ two rent lookups, cached for the session).
 import type { Connection, PublicKey } from '@solana/web3.js';
-import { LayoutMismatch, SIZE, decode, pdas, type Automation, type Miner } from '@shift/codec';
+import { LayoutMismatch, SIZE, decode, pdas } from '@shift/codec';
+import type { ChainResult, WalletChainState } from '../domain/chainState';
 import { appError, type AppError } from '../domain/errors';
 
-export interface WalletChainState {
-  balanceLamports: bigint;
-  automation: Automation | null;
-  miner: Miner | null;
-  automationRentLamports: bigint;
-  minerRentLamports: bigint;
-}
+export type { ChainResult, WalletChainState };
 
 const RENT_TTL_MS = 10 * 60 * 1000; // rent is a cluster parameter; re-read it regularly
 let rentCache: { automation: bigint; miner: bigint; at: number } | null = null;
@@ -24,8 +19,6 @@ async function rents(connection: Connection) {
   rentCache = { automation: BigInt(a), miner: BigInt(m), at: Date.now() };
   return rentCache;
 }
-
-export type ChainResult = { ok: true; state: WalletChainState } | { ok: false; error: AppError };
 
 export async function loadWalletChainState(connection: Connection, owner: PublicKey): Promise<ChainResult> {
   try {

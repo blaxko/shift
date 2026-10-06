@@ -5,6 +5,9 @@ export type AppErrorCode =
   | 'USER_REJECTED' // E-2 / AC-1.4
   | 'RPC_UNAVAILABLE' // E-12
   | 'LAYOUT_MISMATCH' // E-11
+  | 'SIMULATION_FAILED' // AC-3.3
+  | 'TX_FAILED' // landed but failed on chain
+  | 'EXPIRED' // E-4
   | 'UNKNOWN';
 
 export interface AppError {

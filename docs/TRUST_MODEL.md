@@ -3,7 +3,9 @@
 Source: `regolith-labs/ore` @ `48c203bd` (ore-api 3.8.25), the commit OtterSec reports as the deployed program. Citations are `file:line` in that commit. Draft written in Phase 1 for the Checkpoint review (decision 2); finalised in Phase 8.
 
 ## What the crank holds and sends
-The crank holds one key (the executor) and enough SOL for network fees. It sends **only `Deploy` and `Checkpoint`** (FR-4.3). It contains no code to transfer, claim, withdraw or close user funds.
+The crank holds one key (the executor) and enough SOL for network fees. It sends **only `Deploy` and `Checkpoint`** (FR-4.3), plus ComputeBudget settings that take no accounts and move no funds (the priority fee). It contains no code to transfer, claim, withdraw or close user funds; this is enforced by a test over its source and, at runtime, by `assertCrankInstructions` (programs limited to ORE + ComputeBudget, ORE instructions limited to Deploy and Checkpoint, executor the only signer). It is dry-run by default and in dry-run never even loads the secret key.
+
+**Known limitation (OQ-7):** once ORE closes a depleted automation, the crank can no longer find that user (it discovers users through the automation's executor field), so the **final round's** `Checkpoint` is not sent by the crank. The user's clock-out includes it. ORE forfeits an unchecked round's rewards after about a day (`checkpoint.rs:52-57`), and ORE pays a bounty (the 10 000-lamport reserve) to anyone who checkpoints a round that has been unchecked for 12 hours or more (`checkpoint.rs:64-66`), so third-party bots are economically encouraged to do it, but this is not guaranteed.
 
 ## Every lamport movement the executor can trigger
 

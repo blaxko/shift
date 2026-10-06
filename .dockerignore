@@ -1,0 +1,12 @@
+.git
+node_modules
+**/node_modules
+app/*
+!app/package.json
+docs
+scripts
+*.md
+.env*
+**/*.json.bak
+packages/codec/test
+**/dist

@@ -4,7 +4,7 @@
 
 | Field | Value |
 |---|---|
-| Status | v1.3, build-ready. Items marked **[VERIFY]** must be confirmed in source before the dependent code is written |
+| Status | v1.4, build-ready. Items marked **[VERIFY]** must be confirmed in source before the dependent code is written |
 | Owner | Solo builder (product, engineering, demo) |
 | Builder | Human + Claude Code (see `shift-claude-code-prompt.md`) |
 | Target | CLOCK IN hackathon (Solana Mobile × Radiants): Mobile track + ORE matched prize |
@@ -18,6 +18,7 @@
 | 4 Oct 2026 | 1.1 | Phase 0 discovery (ORE_NOTES.md, ore-api 3.8.25 @ 48c203bd): (1) crank also sends **Checkpoint** — FR-4.3 / AC-4.5 / NFR-S6 reworded; (2) payslip rebuilt on Miner lifetime counters because ORE auto-returns SOL and auto-closes depleted automations — IN memo, F6 formulas, state machine, AC-5.3, AC-7.2, E-17 changed; (3) idle shell automation (balance 0, executor = owner) may be closed + replaced in one tx — FR-3.1 / AC-3.5 / E-6; (4) executor fee 1 000 lamports/round, MIN_PER_SQUARE 1 000, fee ≤ 5 % rule in planShift, ROUND_SECONDS = 78 measured; (5) Reset relies on ORE bots, crank `/health` reports stalled rounds; (6) wallet layer = `@wallet-ui/react-native-web3js` (MWA + Seed Vault); README must say so. Q-1…Q-7 answered; OQ-1…OQ-5 resolved |
 | 4 Oct 2026 | 1.2 | (1) Source-verified that the 10 000-lamport checkpoint reserve and the Miner rent are **not refundable** (ORE_NOTES §7.12): FR-2.1 breakdown labels each cost Refundable / Not refundable, new AC-2.5; IN memo gains `setupLamports`; payslip nets setup cost. (2) New AC-4.6: end-of-shift run-down test (rent safety near zero balance). (3) Phase 2 starts with a device smoke build (docs/DEVICE_TEST.md S-1) |
 | 6 Oct 2026 | 1.3 | Device S-2 finding: rent is a cluster parameter and changed (6960 → 5080 lamports/byte between 4 and 6 Oct). The app reads rent live only (no constants, drift tests added); amounts in this PRD are examples as of 6 Oct. Budget line copy changed to "at risk (unspent part returned)" |
+| 6 Oct 2026 | 1.4 | Crank implemented (dry-run only so far): FR-4.5 (Preferred only, funded for one round, never creates a Miner, "waiting" round is open), FR-4.6 + AC-4.7 (dry-run default, live needs two switches, secret never loaded in dry-run), AC-4.5 strengthened (source scan + runtime guard), ComputeBudget priority-fee instructions disclosed; TRUST_MODEL notes the final-round checkpoint limitation (OQ-7) |
 
 ---
 
@@ -244,7 +245,9 @@ Loop, run every round:
 Functional requirements:
 - FR-4.1: `GET /health` returns `{ ok, crankPubkey, lastRoundId, lastRoundDeployedAt, activeAutomations, slotLag, solBalance, roundStalled, lastBoardAdvanceAt }`. `roundStalled` is true when the Board round hasn't advanced for > 3 × ROUND_SECONDS (the app then shows **Paused**, AC-11.1).
 - FR-4.2: A `DRY_RUN=1` mode builds and simulates transactions without sending them.
-- FR-4.3: **The crank sends only `Deploy` and `Checkpoint` instructions; no code path may transfer, claim, withdraw, or close user funds.** (Fund movements these two instructions can cause are enumerated in `docs/TRUST_MODEL.md`.)
+- FR-4.3: **The crank sends only `Deploy` and `Checkpoint` instructions; no code path may transfer, claim, withdraw, or close user funds.** (Fund movements these two instructions can cause are enumerated in `docs/TRUST_MODEL.md`.) The only other instructions it attaches are ComputeBudget settings (unit limit, and the priority fee of FR-4.4), which take no accounts and move no funds.
+- FR-4.5: The crank only runs automations with the **Preferred** strategy (so the executor can never choose squares), only when the balance covers one round (`amount × squares + fee`), and **never pays to create a missing Miner account** (`Deploy` would charge the executor for it, `deploy.rs:218-226`). It treats the round as open in the "waiting" state (`end_slot == u64::MAX`), where the first `Deploy` starts the round.
+- FR-4.6: **Dry-run is the default and needs no secret key.** `DRY_RUN` unset or `1` simulates only (`EXECUTOR_PUBKEY` is enough). Live mode requires BOTH `DRY_RUN=0` and `ACKNOWLEDGE_LIVE=I-ACCEPT-MAINNET-TRANSACTIONS`; any other combination is a startup error, never a silent fallback.
 - FR-4.4: Configuration comes from env vars only: `RPC_URL`, `EXECUTOR_KEYPAIR` (base58 or JSON), `PRIORITY_FEE_MICROLAMPORTS`, `PORT`.
 
 Acceptance criteria:
@@ -253,7 +256,8 @@ Acceptance criteria:
 - **AC-4.3** WHEN the crank restarts THE CRANK SHALL resume within one round with no local state needed.
 - **AC-4.4** `DRY_RUN=1` SHALL produce successful simulations against mainnet for a live test automation.
 - **AC-4.6** END-OF-SHIFT TEST (mainnet, small budget, own test wallet): WHEN a SHIFT automation is run down to zero THE SYSTEM SHALL show: (a) the final rounds deploy with no rent error (the `InsufficientFundsForRent` seen on a *legacy* fixture automation in ORE_NOTES §10 must not occur on a SHIFT-created one); (b) ORE auto-closes the automation (`deploy.rs:267-278, 349-351`); (c) the remaining balance + Automation rent return to the wallet (wallet delta checked against `returnedAtClose` + 0.00200448 SOL); (d) the app shows **Complete**, the payslip matches the explorer, and clock-out then only claims. Analysis behind it: a SHIFT automation's lamports are always `rent + balance` and every outflow is either `≤ balance` or a full close to the authority, so it can never be left below rent; the test confirms this on chain, and any failure is raised as an OQ proposing a rent-safe margin in `planShift` before code changes.
-- **AC-4.5** The crank's source SHALL import only the `executorDeploy` and `checkpoint` instruction builders from `@shift/codec` (enforced by a unit test over its imports, plus code review).
+- **AC-4.5** The crank's source SHALL import only the `executorDeploy` and `checkpoint` instruction builders from `@shift/codec`, and SHALL contain no `SystemProgram`/transfer/claim/withdraw/close code (enforced by a unit test over its source). At runtime every transaction passes `assertCrankInstructions`: programs limited to ORE + ComputeBudget, ORE instructions limited to Deploy and Checkpoint, and the executor is the only signer.
+- **AC-4.7** WHEN the crank is started with `DRY_RUN=0` but without `ACKNOWLEDGE_LIVE`, or with an unrecognised `DRY_RUN`, THE CRANK SHALL exit with status 2 and a message that never contains key material. In dry-run, the secret key SHALL NOT be loaded even if provided.
 
 ### F5 — Active shift screen
 Shows:
@@ -362,7 +366,7 @@ Acceptance criteria:
 | NFR-S3 | Invariant: the deposit in `Automate` equals the displayed budget and is ≤ 0.5 SOL. Enforced in code with a unit test |
 | NFR-S4 | Reload is always 0 |
 | NFR-S5 | The crank key is loaded only from env, never committed, never logged. A `.gitignore` covers key files; secret scanning runs before every commit |
-| NFR-S6 | The crank sends only `Deploy` and `Checkpoint`; no code path may transfer, claim, withdraw or close user funds (AC-4.5) |
+| NFR-S6 | The crank sends only `Deploy` and `Checkpoint` (plus ComputeBudget priority-fee settings); no code path may transfer, claim, withdraw or close user funds (AC-4.5) |
 | NFR-S7 | The ORE program ID and memo program ID are constants, checked against each decoded account's owner |
 | NFR-S8 | The README and `docs/TRUST_MODEL.md` document the trust model: what the executor can and can't do, based on the verified program source. The README also states the app uses Mobile Wallet Adapter with Seed Vault (via `@wallet-ui/react-native-web3js`) |
 

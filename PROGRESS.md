@@ -1,5 +1,15 @@
 # Progress
 
+## 2026-10-06 Phase 4 — crank (built, DRY-RUN ONLY; nothing sent, no key generated or handled)
+- Done (319 unit tests green, tsc + eslint clean):
+  - crank/src: config (dry-run default; live needs DRY_RUN=0 AND ACKNOWLEDGE_LIVE; secret dropped in dry-run; bad keys never echoed; RPC URL path/query never logged), plan (Preferred only, funded for one round, never creates a Miner, checkpoint-before-deploy, "waiting" round is open), batch (greedy packing under the 1232-byte limit, runtime guard assertCrankInstructions), submit (DryRunSubmitter structurally cannot send; LiveSubmitter exists but is unreachable without both locks), health (/health incl. roundStalled, lowBalance, slotLag), loop (never throws, failure isolation, stateless restart).
+  - AC-4.5 PASSING (source-scan test + runtime guard); AC-4.2 PASSING (unit: boundary at exactly one round, depleted never errors); AC-4.3 PASSING at unit level (fresh instance == same behaviour; real restart is part of the live 30-min test); AC-4.7 PASSING (tests + clean-room run: DRY_RUN=0 alone exits 2); FR-4.1 /health served and checked over HTTP; FR-4.2 dry-run.
+  - Integration vs mainnet (read-only): scripts/crank-dryrun-permissionless.ts ran the real planner+batcher+DryRunSubmitter on 12 live Preferred automations (permissionless executor accepts any signer): 12/12 simulated OK, ~22k CU each. Real process run: banner, /health JSON, 0 errors. ORE bots had already deployed all 35 active ones that round -> planner correctly produced no work (idempotent).
+  - Ops: crank/Dockerfile, .dockerignore, railway.json, crank/.env.example, docs/CRANK_RUNBOOK.md, scripts/gen-executor-key.mjs (NOT run; tested structurally: refuses overwrite, prints secret only behind a flag).
+- NOT verified: AC-4.1 (30-min liveness), AC-4.4 (needs your SHIFT automation after S-3), AC-4.6 (needs live crank + tiny shift), the Docker image build (no Docker daemon here; clean-room npm ci + start from a trimmed copy worked).
+- Open: OQ-7 final-round checkpoint limitation (documented), OQ-8 ComputeBudget disclosure (confirm).
+- Next: when you send the executor public key I set EXPO_PUBLIC_CRANK_PUBKEY in app/eas.json and commit; then S-3. After S-3: AC-4.4 dry-run on your automation. Phase 5 (reconcile/payslip/active screen) can start in parallel.
+
 ## 2026-10-06 Phase 3 — clock in (built + unit-verified; AWAITING executor public key + device S-3)
 - Done earlier today (S-2 findings): rent is now read live only (cluster rent changed 6960 -> 5080 lamports/byte; ORE charges exactly the RPC minimum, proven by simulation), no rent constants in shipped source (unit scan + RUN_LIVE drift check); budget line copy; Diagnostics sample optional. PRD v1.3.
 - Done (219 unit tests green, app tsc + expo lint clean, Metro bundles 1815 modules):

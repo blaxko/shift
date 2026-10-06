@@ -1,6 +1,6 @@
 # SHIFT — agent guide
 Android (Expo RN) app + Node executor "crank" wrapping ORE's `Automate` as clock in / shift / payslip / clock out.
-PRD is at v1.1 (Phase 0 amendments: crank sends Deploy + Checkpoint only; payslip from Miner lifetime counters).
+PRD is at v1.4 (crank sends Deploy + Checkpoint only [+ ComputeBudget]; payslip from Miner lifetime counters; rent is read live, never hard-coded).
 Hard deadline 9 Oct 2026 06:59 UTC; feature freeze 8 Oct 18:00 UTC. **`docs/PRD.md` is the source of truth.**
 PRD IDs (F*, FR-*, AC-*, E-*, NFR-*, Q-*) are the vocabulary: cite them in code comments, tests, commits, notes.
 
@@ -10,7 +10,7 @@ PRD IDs (F*, FR-*, AC-*, E-*, NFR-*, Q-*) are the vocabulary: cite them in code 
 - `npm run lint` — ESLint (packages, crank, scripts); app has its own `npm run lint:check -w app`
 - `npm run fetch-fixtures` — READ-ONLY mainnet account dump (needs `RPC_URL`)
 - `npm run simulate-live` — READ-ONLY `simulateTransaction` of every builder vs mainnet (also `RUN_LIVE=1 npm test`)
-- App: `npm run android -w app` (dev build, not Expo Go). Crank: `DRY_RUN=1 npx tsx crank/src/index.ts`
+- App: `npm run android -w app` (dev build, not Expo Go). Crank (dry-run, needs only EXECUTOR_PUBKEY): `npm run crank:dry` — see docs/CRANK_RUNBOOK.md
 
 ## Repo map
 - `app/` Expo app: `src/screens`, `src/services`, `src/domain` (planShift, reconcile, streak, memo), `src/config`

@@ -6,6 +6,9 @@ import { base58Decode } from './base58';
 
 export const LIVE_ACK = 'I-ACCEPT-MAINNET-TRANSACTIONS';
 
+/** E-10: below this executor balance the crank warns and `/health` reports `lowBalance`. 0.01 SOL (decision 2026-10-06); a deploy tx costs ~0.000005 SOL. */
+export const LOW_BALANCE_LAMPORTS = 10_000_000n;
+
 export class ConfigError extends Error {
   constructor(message: string) {
     super(message);
@@ -101,7 +104,7 @@ export function parseConfig(env: NodeJS.ProcessEnv): CrankConfig {
     priorityFeeMicroLamports: int(env, 'PRIORITY_FEE_MICROLAMPORTS', 1000, 0, MAX_PRIORITY_FEE_MICROLAMPORTS),
     port: int(env, 'PORT', 8080, 1, 65535),
     pollMs: int(env, 'POLL_MS', 2000, 250, 60_000),
-    lowBalanceLamports: 50_000_000n, // E-10: alert below 0.05 SOL
+    lowBalanceLamports: LOW_BALANCE_LAMPORTS,
     endMarginSlots: BigInt(int(env, 'END_MARGIN_SLOTS', 8, 0, 100)),
     maxItemsPerTx: int(env, 'MAX_ITEMS_PER_TX', 5, 1, 12),
   };

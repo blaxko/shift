@@ -571,7 +571,7 @@ GET /health → 200 { ok, crankPubkey, lastRoundId, lastRoundDeployedAt, activeA
 | E-7 | User has unclaimed ORE/SOL from before SHIFT | The baseline in the IN memo excludes it from the payslip; clock-out claims everything and labels pre-existing rewards "earlier rewards" |
 | E-8 | Rewards claimed outside SHIFT mid-shift | AC-6.3 |
 | E-9 | Crank offline | AC-11.1; funds stay in the program; the user can withdraw |
-| E-10 | Crank SOL balance low | `/health` reports it; alert at < 0.05 SOL; the app shows Paused if deploys stop or `roundStalled` |
+| E-10 | Crank SOL balance low | `/health` reports it; alert at < 0.01 SOL (changed from 0.05 on 6 Oct, PRD v1.7); the app shows Paused if deploys stop or `roundStalled` |
 | E-11 | ORE program upgrade changes a layout | Decoder throws a typed `LayoutMismatch`; the app enters read-only "Maintenance" mode with a banner; no signing allowed |
 | E-12 | RPC rate-limited or down | Cached view + stale banner; exponential backoff (1/2/4/8 s, max 30 s) |
 | E-13 | App killed or phone rebooted mid-shift | Nothing needed; reconcile on next open (AC-6.1) |

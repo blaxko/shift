@@ -143,8 +143,8 @@ describe('resilience: the loop never throws (AC-4.2) and recovers (AC-4.3)', () 
 });
 
 describe('E-10: executor balance', () => {
-  it('reports balance and warns below 0.05 SOL', async () => {
-    const { crank, health, log } = setup({ balance: 10_000_000n });
+  it('reports balance and warns below 0.01 SOL', async () => {
+    const { crank, health, log } = setup({ balance: 9_999_999n });
     await crank.tick();
     expect(health.snapshot(NOW).lowBalance).toBe(true);
     expect(log.lines.some((l) => l.event === 'low_executor_balance')).toBe(true);

@@ -43,11 +43,11 @@ describe('HealthState (FR-4.1, E-10, AC-11.1)', () => {
     h.noteBoard(board({ roundId: 7n }), 1_200n, 1_200);
     expect(h.snapshot(1_000 + STALLED_AFTER_SECONDS + 1).roundStalled).toBe(true);
   });
-  it('E-10: low balance flagged below 0.05 SOL', () => {
+  it('E-10: low balance flagged below 0.01 SOL, exactly at the threshold is fine', () => {
     const h = newHealth();
-    h.setBalance(49_999_999n);
+    h.setBalance(9_999_999n);
     expect(h.snapshot(0).lowBalance).toBe(true);
-    h.setBalance(50_000_000n);
+    h.setBalance(10_000_000n);
     expect(h.snapshot(0).lowBalance).toBe(false);
   });
   it('slotLag: slots past the window end while no Reset has started the next round', () => {

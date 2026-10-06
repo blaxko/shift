@@ -10,7 +10,7 @@
  * - File mode 0600 (owner only; on Windows the home-folder ACL applies).
  * - Prints ONLY the public key and the file path. The secret is printed only with --print-secret-for-env.
  *
- * Fund the PUBLIC key with ~0.1 SOL for transaction fees (E-10: the crank reports low balance below 0.05 SOL). Never commit the file.
+ * Fund the PUBLIC key with ~0.03 SOL for transaction fees (E-10: the crank reports low balance below 0.01 SOL). Never commit the file.
  */
 import { Keypair } from '@solana/web3.js';
 import { chmodSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';

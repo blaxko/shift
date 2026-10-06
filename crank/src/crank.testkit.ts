@@ -6,7 +6,7 @@ import { Keypair, type PublicKey } from '@solana/web3.js';
 import { Buffer } from 'buffer';
 import { ORE_PROGRAM_ID, decode, type Automation, type Board, type Miner } from '@shift/codec';
 import type { ChainReader } from './chain';
-import type { CrankConfig } from './config';
+import { LOW_BALANCE_LAMPORTS, type CrankConfig } from './config';
 import { HealthState } from './health';
 import type { Logger } from './log';
 import type { SubmitContext, SubmitResult, Submitter } from './submit';
@@ -51,7 +51,7 @@ export const config = (over: Partial<CrankConfig> = {}): CrankConfig => ({
   priorityFeeMicroLamports: 1_000,
   port: 8080,
   pollMs: 2_000,
-  lowBalanceLamports: 50_000_000n,
+  lowBalanceLamports: LOW_BALANCE_LAMPORTS,
   endMarginSlots: 8n,
   maxItemsPerTx: 5,
   ...over,

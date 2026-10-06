@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 // @ts-expect-error plain .mjs script, no types
 import { base58Encode } from '../../scripts/gen-executor-key.mjs';
 import { base58Decode } from './base58';
-import { ConfigError, LIVE_ACK, MAX_PRIORITY_FEE_MICROLAMPORTS, describeConfig, parseConfig } from './config';
+import { ConfigError, LIVE_ACK, LOW_BALANCE_LAMPORTS, MAX_PRIORITY_FEE_MICROLAMPORTS, describeConfig, parseConfig } from './config';
 import { consoleLogger, redact } from './log';
 
 // Ephemeral keys generated INSIDE the test process only to exercise parsing; they are never persisted or printed.
@@ -86,7 +86,8 @@ describe('other settings (FR-4.4)', () => {
   it('defaults', () => {
     const c = parseConfig(ok);
     expect(c).toMatchObject({ port: 8080, priorityFeeMicroLamports: 1000, pollMs: 2000, maxItemsPerTx: 5 });
-    expect(c.lowBalanceLamports).toBe(50_000_000n);
+    expect(c.lowBalanceLamports).toBe(10_000_000n); // 0.01 SOL
+    expect(LOW_BALANCE_LAMPORTS).toBe(10_000_000n);
   });
   it('validates numbers and caps the priority fee (fat-finger protection)', () => {
     expect(() => parseConfig({ ...ok, PORT: 'abc' })).toThrow();

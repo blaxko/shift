@@ -51,8 +51,10 @@ Checklist, in order:
 4. Start it and watch for `starting_LIVE`, then `batch_sent` lines with signatures. Check one signature on an explorer.
 5. **Stop = unset `DRY_RUN`/`ACKNOWLEDGE_LIVE` (or set `DRY_RUN=1`) and restart, or stop the process.** Users' funds are never at risk from the crank stopping: they stay in the ORE program and the app's "End shift & withdraw" works without it.
 
-## 5. Railway (not deployed yet)
-`railway.json` at the repo root points at `crank/Dockerfile`; health check `/health`. Variables: `RPC_URL`, `EXECUTOR_PUBKEY` (dry-run) or the three live variables, `PRIORITY_FEE_MICROLAMPORTS`. The image defaults to `DRY_RUN=1`. **The Docker image has not been built yet** (no Docker daemon on the dev machine); a clean-room `npm ci` of the crank workspaces and a start from that copy were verified.
+## 5. Railway
+Full step-by-step for a non-expert: **`docs/RAILWAY_RUNBOOK.md`**. The Docker image (`crank/Dockerfile`) was built and run on 2026-10-06: it starts as a non-root user, serves `/health`, defaults to dry-run and refuses unsafe live config (exit 2). Railway builds it for you from `railway.json`; you type no build or start commands.
+
+The go-live order and what you do on the phone is in **`docs/GO_LIVE_PLAN.md`**.
 
 ## 6. Tests to run with the crank live (later)
 - **AC-4.1/4.3** 30-minute liveness test: deploy rate >= 98 % of rounds; kill and restart the process, deploys resume within one round.

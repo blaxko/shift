@@ -4,7 +4,7 @@
 
 | Field | Value |
 |---|---|
-| Status | v1.6, build-ready. Items marked **[VERIFY]** must be confirmed in source before the dependent code is written |
+| Status | v1.7, build-ready. Items marked **[VERIFY]** must be confirmed in source before the dependent code is written |
 | Owner | Solo builder (product, engineering, demo) |
 | Builder | Human + Claude Code (see `shift-claude-code-prompt.md`) |
 | Target | CLOCK IN hackathon (Solana Mobile × Radiants): Mobile track + ORE matched prize |
@@ -21,6 +21,7 @@
 | 6 Oct 2026 | 1.4 | Crank implemented (dry-run only so far): FR-4.5 (Preferred only, funded for one round, never creates a Miner, "waiting" round is open), FR-4.6 + AC-4.7 (dry-run default, live needs two switches, secret never loaded in dry-run), AC-4.5 strengthened (source scan + runtime guard), ComputeBudget priority-fee instructions disclosed; TRUST_MODEL notes the final-round checkpoint limitation (OQ-7) |
 | 6 Oct 2026 | 1.5 | Decisions: OQ-7 accepted for the hackathon (final-round Checkpoint is the user's clock-out; new AC-6.5 and F8 copy: "Clock out within 24 h to keep your final round's rewards"); new P2 feature F14 (crank rebuilds its served-authority list from its own tx history, statelessly, and sends final-round Checkpoints); OQ-8 resolved: ComputeBudget priority-fee instructions stay, disclosure in PRD v1.4 + TRUST_MODEL is sufficient |
 | 6 Oct 2026 | 1.6 | Phase 6 clock-out: "End shift & withdraw" is the same single clock-out transaction (AC-7.3), no separate stop-only path; AC-7.4 explains the checkpoint look-ahead and the SHIFT-only close; new AC-7.5 (never clock out twice). AC-6.5 refined: the 24 h notice only when an unchecked round with a deployment exists (a 0-round shift never nags) |
+| 6 Oct 2026 | 1.7 | Go-live readiness: E-10 low-balance alert lowered from 0.05 to 0.01 SOL (executor funded with ~0.03 SOL; a deploy tx costs ~0.000005 SOL); Docker image verified; Railway runbook and go-live test plan added (docs/RAILWAY_RUNBOOK.md, docs/GO_LIVE_PLAN.md) |
 
 ---
 

@@ -15,7 +15,10 @@
     "lint": "eslint packages crank scripts",
     "fetch-fixtures": "tsx scripts/fetch-fixtures.ts",
     "simulate-live": "tsx scripts/simulate-live.ts",
-    "crank:dry": "tsx crank/src/index.ts"
+    "crank:dry": "tsx crank/src/index.ts",
+    "secret-scan": "node scripts/secret-scan.mjs",
+    "liveness": "tsx scripts/liveness.ts",
+    "payslip-check": "tsx scripts/payslip-check.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",

@@ -16,6 +16,9 @@ describe.skipIf(!process.env.RUN_LIVE)('live simulation (read-only)', () => {
     const summary = out.slice(out.indexOf('SUMMARY'));
     expect(summary, out).toContain('PASS  A idle-shell close+Automate in ONE tx');
     expect(summary, out).toContain('PASS  B fresh clock-in');
+    // Drift guard: what ORE actually charges for new accounts must equal the RPC's current rent-exempt minimum.
+    expect(summary, out).toContain('PASS  B rent charged == live getMinimumBalanceForRentExemption (automation)');
+    expect(summary, out).toContain('PASS  B rent charged == live minimum + 10000 reserve (miner)');
     expect(summary).not.toContain('FAIL');
   });
 });

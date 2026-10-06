@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { RENT_AUTOMATION_FALLBACK, RENT_MINER_FALLBACK } from '../config/planning';
 import { checkBalance, costBreakdown, type ChainCostContext } from './costs';
 import { planShift, type ShiftPlan } from './planShift';
 
@@ -8,18 +7,22 @@ const plan = (budget: bigint): ShiftPlan => {
   if (!r.ok) throw new Error(r.reason);
   return r.plan;
 };
-const fresh: ChainCostContext = { hasMiner: false, minerReserveIsZero: false, reusesIdleShell: false, automationRentLamports: RENT_AUTOMATION_FALLBACK, minerRentLamports: RENT_MINER_FALLBACK };
+// TEST DATA ONLY: rent as returned by mainnet on 2026-10-06 (5080 lamports/byte x (size + 128)). The app never hard-codes rent; it reads it live.
+const RENT_AUTOMATION = (160n + 128n) * 5080n; // 1_463_040
+const RENT_MINER = (752n + 128n) * 5080n; // 4_470_400
+const fresh: ChainCostContext = { hasMiner: false, minerReserveIsZero: false, reusesIdleShell: false, automationRentLamports: RENT_AUTOMATION, minerRentLamports: RENT_MINER };
 const kinds = (b: ReturnType<typeof costBreakdown>) => b.lines.map((l) => l.kind);
 
 describe('costBreakdown (FR-2.1, AC-2.5)', () => {
-  it('fresh wallet: all lines, correct refundable flags, setup = 6_134_800', () => {
+  it('fresh wallet: all lines, correct refundable flags, setup = miner rent + 10_000 reserve', () => {
     const b = costBreakdown(plan(20_000_000n), fresh);
     expect(kinds(b)).toEqual(['budget', 'automation-rent', 'miner-rent', 'checkpoint-reserve', 'executor-fees', 'network-fee']);
     const refundable = Object.fromEntries(b.lines.map((l) => [l.kind, l.refundable]));
     expect(refundable).toEqual({ budget: true, 'automation-rent': true, 'miner-rent': false, 'checkpoint-reserve': false, 'executor-fees': false, 'network-fee': false });
-    expect(b.setupLamports).toBe(6_124_800n + 10_000n);
+    expect(b.setupLamports).toBe(RENT_MINER + 10_000n);
     // executor fees come out of the budget, so they are NOT added to what leaves the wallet
-    expect(b.totalLeavingWalletNow).toBe(20_000_000n + 2_004_480n + 6_124_800n + 10_000n + 10_000n);
+    expect(b.totalLeavingWalletNow).toBe(20_000_000n + RENT_AUTOMATION + RENT_MINER + 10_000n + 10_000n);
+    expect(b.totalLeavingWalletNow).toBe(25_953_440n); // = 0.02595344 SOL, the figure seen on device in S-2
   });
   it('existing Miner with its reserve funded: no setup lines, setup 0 (AC-2.5: omitted when not charged)', () => {
     const b = costBreakdown(plan(20_000_000n), { ...fresh, hasMiner: true, minerReserveIsZero: false });
@@ -46,9 +49,22 @@ describe('costBreakdown (FR-2.1, AC-2.5)', () => {
   });
 });
 
+describe('rent comes from the chain context, never from constants', () => {
+  it('changing the live rent changes the costs by exactly that amount', () => {
+    const base = costBreakdown(plan(20_000_000n), fresh);
+    const doubled = costBreakdown(plan(20_000_000n), { ...fresh, automationRentLamports: RENT_AUTOMATION * 2n, minerRentLamports: RENT_MINER * 2n });
+    expect(doubled.totalLeavingWalletNow - base.totalLeavingWalletNow).toBe(RENT_AUTOMATION + RENT_MINER);
+    expect(doubled.setupLamports - base.setupLamports).toBe(RENT_MINER);
+  });
+  it('the old (pre-2026-10-05) rent is not baked in anywhere: with zero rent only budget + reserve + network fee remain', () => {
+    const b = costBreakdown(plan(20_000_000n), { ...fresh, automationRentLamports: 0n, minerRentLamports: 0n });
+    expect(b.totalLeavingWalletNow).toBe(20_000_000n + 10_000n + 10_000n);
+  });
+});
+
 describe('checkBalance (FR-2.2, AC-2.3)', () => {
   const b = costBreakdown(plan(20_000_000n), fresh);
-  const needed = 20_000_000n + 2_004_480n + 6_124_800n + 10_000n + 10_000n + 10_000_000n; // + 0.01 SOL fee reserve
+  const needed = 20_000_000n + RENT_AUTOMATION + RENT_MINER + 10_000n + 10_000n + 10_000_000n; // + 0.01 SOL fee reserve
   it('exactly enough passes', () => {
     expect(checkBalance(needed, b)).toEqual({ ok: true, neededLamports: needed });
   });

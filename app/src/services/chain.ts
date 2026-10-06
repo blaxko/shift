@@ -1,7 +1,6 @@
 // Chain reads for the setup flow. NFR-P3: one getMultipleAccounts call (+ two rent lookups, cached for the session).
 import type { Connection, PublicKey } from '@solana/web3.js';
 import { LayoutMismatch, SIZE, decode, pdas, type Automation, type Miner } from '@shift/codec';
-import { RENT_AUTOMATION_FALLBACK, RENT_MINER_FALLBACK } from '../config/planning';
 import { appError, type AppError } from '../domain/errors';
 
 export interface WalletChainState {
@@ -12,19 +11,17 @@ export interface WalletChainState {
   minerRentLamports: bigint;
 }
 
-let rentCache: { automation: bigint; miner: bigint } | null = null;
+const RENT_TTL_MS = 10 * 60 * 1000; // rent is a cluster parameter; re-read it regularly
+let rentCache: { automation: bigint; miner: bigint; at: number } | null = null;
 
+/** Live rent-exempt minimums (cached for the session). Throws if the RPC can't answer: we never show a guessed cost. */
 async function rents(connection: Connection) {
-  if (rentCache) return rentCache;
-  try {
-    const [a, m] = await Promise.all([
-      connection.getMinimumBalanceForRentExemption(SIZE.automation),
-      connection.getMinimumBalanceForRentExemption(SIZE.miner),
-    ]);
-    rentCache = { automation: BigInt(a), miner: BigInt(m) };
-  } catch {
-    return { automation: RENT_AUTOMATION_FALLBACK, miner: RENT_MINER_FALLBACK }; // not cached: try again next time
-  }
+  if (rentCache && Date.now() - rentCache.at < RENT_TTL_MS) return rentCache;
+  const [a, m] = await Promise.all([
+    connection.getMinimumBalanceForRentExemption(SIZE.automation),
+    connection.getMinimumBalanceForRentExemption(SIZE.miner),
+  ]);
+  rentCache = { automation: BigInt(a), miner: BigInt(m), at: Date.now() };
   return rentCache;
 }
 

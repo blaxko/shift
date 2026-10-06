@@ -21,9 +21,7 @@ export const FEE_RESERVE_LAMPORTS = 10_000_000n;
 /** Rough network fee for the clock-in transaction (replaced by the simulated fee in Phase 3). */
 export const NETWORK_FEE_ESTIMATE_LAMPORTS = 10_000n;
 
-/**
- * Rent-exempt minimums for the two ORE accounts. The app reads the real values from the chain; these are the values
- * observed on mainnet (ORE_NOTES §7.8) and are used as test data and as a last-resort fallback.
- */
-export const RENT_AUTOMATION_FALLBACK = 2_004_480n; // (160 + 128) * 6960
-export const RENT_MINER_FALLBACK = 6_124_800n; // (752 + 128) * 6960
+// NOTE: there are deliberately NO rent constants here. Rent is a cluster parameter that changes (it changed between 2026-10-04
+// and 2026-10-06, see docs/ORE_NOTES.md §7.8). The app reads it live via getMinimumBalanceForRentExemption; a unit test
+// (no-hardcoded-rent.test.ts) fails if a rent literal is ever added to app/codec/crank source, and `RUN_LIVE=1` compares the
+// live value with what ORE actually charges.

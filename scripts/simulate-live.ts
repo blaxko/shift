@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction } from '@solana/web3.js';
 import {
   automate,
+  CHECKPOINT_FEE_LAMPORTS,
   checkpoint,
   claimOre,
   claimSol,
@@ -25,6 +26,7 @@ import {
   ORE_PROGRAM_ID,
   pdas,
   shiftMemo,
+  SIZE,
   stopAutomation,
 } from '../packages/codec/src';
 
@@ -119,12 +121,21 @@ async function main() {
   let fresh: PublicKey | null = null;
   for (const c of candidates) if ((await lamports(c)) > 50_000_000 && !(await exists(pdas.automation(c))) && !(await exists(pdas.miner(c)))) { fresh = c; break; }
   if (fresh) {
-    const memo = formatInMemo({ role: 'balanced', budget: deposit, perSquare: 1000n, squares: 5, feePerRound: 1000n, setupLamports: 6_134_800n, baseLifeSol: 0n, baseLifeDeployed: 0n, baseOre: 0n, localDate: '2026-10-04', tzOffsetMin: 60 });
-    const b = await simulate(fresh, [automate({ authority: fresh, executor: crank, amount: 1000n, deposit, fee: 1000n, mask: 0b11111n, reload: false }), shiftMemo(fresh, memo)], [pdas.automation(fresh)]);
-    results['B fresh clock-in [automate, memo]'] = report('B fresh wallet: [automate, memo]', b);
-    if (b.accounts?.[0]) {
-      const post = decode.automation({ owner: ORE_PROGRAM_ID, data: Buffer.from(b.accounts[0].data[0], 'base64') });
+    // Rent is a cluster parameter that CAN change (it did between 2026-10-04 and 10-06: 6960 -> 5080 lamports/byte).
+    // Never hard-code it: compare what ORE actually charged with the RPC's current minimum balance.
+    const minAuto = BigInt((await rpc<number>('getMinimumBalanceForRentExemption', [SIZE.automation])));
+    const minMiner = BigInt((await rpc<number>('getMinimumBalanceForRentExemption', [SIZE.miner])));
+    const memo = formatInMemo({ role: 'balanced', budget: deposit, perSquare: 1000n, squares: 5, feePerRound: 1000n, setupLamports: minMiner + CHECKPOINT_FEE_LAMPORTS, baseLifeSol: 0n, baseLifeDeployed: 0n, baseOre: 0n, localDate: '2026-10-04', tzOffsetMin: 60 });
+    const bsim = await simulate(fresh, [automate({ authority: fresh, executor: crank, amount: 1000n, deposit, fee: 1000n, mask: 0b11111n, reload: false }), shiftMemo(fresh, memo)], [pdas.automation(fresh), pdas.miner(fresh)]);
+    results['B fresh clock-in [automate, memo]'] = report('B fresh wallet: [automate, memo]', bsim);
+    if (bsim.accounts?.[0] && bsim.accounts?.[1]) {
+      const post = decode.automation({ owner: ORE_PROGRAM_ID, data: Buffer.from(bsim.accounts[0].data[0], 'base64') });
       console.log(`   AC-3.2 post-state: balance=${post.balance} (== deposit ${deposit}) executor==crank:${post.executor.equals(crank)} strategy=${post.strategy} reload=${post.reload}`);
+      const autoRent = BigInt(bsim.accounts[0].lamports) - deposit;
+      const minerHeld = BigInt(bsim.accounts[1].lamports);
+      console.log(`   RENT charged by ORE: automation ${autoRent} (RPC minimum ${minAuto}); miner ${minerHeld} = minimum ${minMiner} + checkpoint reserve ${CHECKPOINT_FEE_LAMPORTS}`);
+      results['B rent charged == live getMinimumBalanceForRentExemption (automation)'] = autoRent === minAuto;
+      results['B rent charged == live minimum + 10000 reserve (miner)'] = minerHeld === minMiner + CHECKPOINT_FEE_LAMPORTS;
     }
   } else console.log('B: no suitable fresh funded wallet found; skipped');
 

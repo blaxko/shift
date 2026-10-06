@@ -7,7 +7,7 @@ import { ORE_PROGRAM_ID, decode } from '@shift/codec';
 import { describe, expect, it } from 'vitest';
 import { deserializeAuth, serializeAuth } from './authCache';
 import { classifyExisting } from './conflict';
-import { formatBps, formatMinutes, formatSol, formatSolExact, formatSolUp, speakSol } from './format';
+import { formatBps, formatMinutes, formatOre, formatSecondsLeft, formatSol, formatSolExact, formatSolUp, speakSol } from './format';
 import { classifyWalletError } from './walletErrors';
 
 const fx = (name: string) => {
@@ -139,5 +139,23 @@ describe('auth cache serialisation (FR-1.2, AC-1.5)', () => {
     const raw = JSON.parse(serializeAuth(auth));
     raw.selected = 'zzz';
     expect(deserializeAuth(JSON.stringify(raw))!.selectedAccount.address.equals(pk)).toBe(true);
+  });
+});
+
+describe('formatOre / formatSecondsLeft', () => {
+  it('ORE has 11 decimals, rounds half-up', () => {
+    expect(formatOre(0n)).toBe('0.0000');
+    expect(formatOre(100_000_000_000n)).toBe('1.0000');
+    expect(formatOre(123_456_789_012n)).toBe('1.2346');
+    expect(formatOre(5_000_000n)).toBe('0.0001'); // 0.00005 rounds half-up
+    expect(formatOre(4_999_999n)).toBe('0.0000');
+    expect(formatOre(3_941_393_113_428n, 11)).toBe('39.41393113428');
+    expect(formatOre(-100_000_000_000n, 2)).toBe('-1.00');
+  });
+  it('time left never shows seconds', () => {
+    expect(formatSecondsLeft(0)).toBe('less than a minute');
+    expect(formatSecondsLeft(30)).toBe('about 1 min');
+    expect(formatSecondsLeft(41 * 78)).toBe('about 54 min');
+    expect(formatSecondsLeft(4_500)).toBe('about 1 h 15 min');
   });
 });

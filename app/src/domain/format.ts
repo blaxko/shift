@@ -53,3 +53,21 @@ export function formatMinutes(min: number): string {
 export function formatBps(bps: number): string {
   return `${(bps / 100).toFixed(bps % 100 === 0 ? 0 : 1)} %`;
 }
+
+/** ORE has 11 decimals (ORE_NOTES §1). Round-half-up to `dp` (default 4). */
+export function formatOre(units: bigint, dp = 4): string {
+  const DEC = 11;
+  if (dp < 0 || dp > DEC) throw new RangeError('dp must be 0..11');
+  const neg = units < 0n;
+  const abs = neg ? -units : units;
+  const scale = 10n ** BigInt(DEC - dp);
+  const rounded = (abs + scale / 2n) / scale;
+  const unit = 10n ** BigInt(dp);
+  return `${neg ? '-' : ''}${rounded / unit}${dp === 0 ? '' : '.' + (rounded % unit).toString().padStart(dp, '0')}`;
+}
+
+/** Seconds -> "about 41 min" / "about 1 h 12 min". Never shows seconds. */
+export function formatSecondsLeft(sec: number): string {
+  if (sec <= 0) return 'less than a minute';
+  return `about ${formatMinutes(Math.max(1, Math.ceil(sec / 60)))}`;
+}

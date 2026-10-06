@@ -13,6 +13,7 @@ export default function RootLayout() {
         <Stack.Screen name="setup" options={{ title: 'Start a shift' }} />
         <Stack.Screen name="clockin" options={{ title: 'Confirm shift' }} />
         <Stack.Screen name="active" options={{ title: 'Your shift', headerBackVisible: false }} />
+        <Stack.Screen name="timesheet" options={{ title: 'Timesheet' }} />
         <Stack.Screen name="payslip" options={{ title: 'Payslip' }} />
         <Stack.Screen name="risks" options={{ title: 'How SHIFT works & risks' }} />
         <Stack.Screen name="smoke" options={{ title: 'Diagnostics' }} />

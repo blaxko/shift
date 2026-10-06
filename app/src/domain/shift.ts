@@ -70,6 +70,11 @@ export interface ReconcileResult {
   current?: Payslip;
   /** Every shift found in the ledger, newest first (includes `current`). */
   history: Payslip[];
+  /**
+   * The effective local date (FR-9.4 applied) of EVERY shift in the ledger, oldest first, one entry per clock-in (duplicates kept).
+   * Input to computeStreak / the timesheet (F9), so they are rebuilt from chain exactly like everything else (AC-9.2).
+   */
+  shiftDays: string[];
   /** A clock-in we sent whose IN memo is not on chain yet (state: Pending). null once it appears or if none. */
   pendingClockInSignature: string | null;
 }

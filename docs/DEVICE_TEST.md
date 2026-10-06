@@ -166,3 +166,27 @@ Pass/fail for S-4.1 … S-4.10, the Payslip numbers you see (headline, net, setu
 
 ### Please report back
 Pass/fail for S-5.1 … S-5.10, both transaction signatures (the memo-only OUT and the end-shift one), and your wallet balance before/after each.
+
+---
+
+## S-6 — Phase 7 / F9: streak, PTO, probation, timesheet (P1)
+
+**Build:** the next EAS build after the go-live loop (do not rebuild just for this). Needs a wallet with at least one SHIFT shift in its history (your S-3/S-5 shifts count). Everything below is derived from the on-chain memos, so you can predict the numbers from your own shifts.
+
+Let *N* = the number of shifts you started today, and assume none earlier.
+
+| ID | AC | Step | Expected | Result |
+|---|---|---|---|---|
+| S-6.1 | FR-9.2 | Open Home | A streak card: **"Streak: 1 day"**, "One free day off (PTO) available this week", and (if you have clocked in fewer than 5 times in the last 7 days) **"Probation: N/5 shifts · 7 days left"** (6 days if your first shift was yesterday, and so on) | |
+| S-6.2 | FR-9.3 | Reach 5 shifts within 7 days of your first | The probation line is replaced by **"Hired ✓"** | |
+| S-6.3 | FR-9.1 | Tap **Timesheet** | The current month; today's cell is outlined and shows a **✓** (or **✓×N** if you did N > 1 shifts today); other days blank; Monday is the first column | |
+| S-6.4 | FR-9.1 | Tap ‹ and › | Previous/next month; days from other months are not marked; the header reads e.g. "October 2026" | |
+| S-6.5 | NFR-A | TalkBack on, move over a day cell | "6 October, 2 shifts, today" / "7 October, no shift"; the ‹ › buttons are announced "Previous month" / "Next month" | |
+| S-6.6 | F9 | Below the calendar | "N shifts on 1 day in October. ✓ = a day you clocked in." and a list of this month's shifts; tapping one opens its payslip | |
+| S-6.7 | AC-9.2 | **Clear data** (or reinstall), reconnect, open Home and Timesheet | The SAME streak, PTO line, probation/Hired line and calendar marks as before | |
+| S-6.8 | FR-9.2 | (Over several days; optional) skip a day, then clock in the next day; skip two days in the same week | Skipped one day: streak continues (the day shows as PTO used). Two skipped days in one ISO week (Mon–Sun): streak resets to "No streak yet" / 1 after your next shift | |
+
+*Not testable on a phone:* the FR-9.4 time-zone guard (memo date more than 36 h from the block time) — covered by unit tests including exact ±36 h boundaries and the 23:59 / 00:30 case.
+
+### Please report back
+Pass/fail for S-6.1 … S-6.8 and a screenshot of Home and of the Timesheet.

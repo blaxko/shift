@@ -61,7 +61,7 @@ function run(over: Partial<ReconcileInput> = {}) {
 
 describe('empty ledger', () => {
   it('no memos: nothing current, no history', () => {
-    expect(run()).toEqual({ current: undefined, history: [], pendingClockInSignature: null });
+    expect(run()).toEqual({ current: undefined, history: [], shiftDays: [], pendingClockInSignature: null });
   });
 });
 
@@ -285,6 +285,24 @@ describe('several shifts: history never double-counts', () => {
   });
   it('duplicate memo entries (same signature) are counted once', () => {
     expect(run({ memos: [inMemo(), inMemo()], snapshot: { automation: null, miner: minerAfter(1) } }).history).toHaveLength(1);
+  });
+});
+
+describe('F9 inputs: shiftDays (FR-9.4 applied once, here)', () => {
+  it('one entry per clock-in, oldest first, duplicates kept', () => {
+    const a = inMemo({ localDate: '2026-09-21', tzOffsetMin: 0 });
+    const b = inMemo({ signature: '9' + 'x'.repeat(86), blockTime: T0 + 3_600, localDate: '2026-09-21', tzOffsetMin: 0 });
+    expect(run({ memos: [b, a], snapshot: { automation: null, miner: minerAfter(0) } }).shiftDays).toEqual(['2026-09-21', '2026-09-21']);
+  });
+  it('FR-9.4: an implausible memo date is replaced by the blockTime date, in the shiftDays AND on the payslip', () => {
+    // T0 = 1_790_000_000 is 2026-09-21T13:33:20Z; the memo claims a date 2 weeks later
+    const r = run({ memos: [inMemo({ localDate: '2026-10-05', tzOffsetMin: 0 })], snapshot: { automation: null, miner: minerAfter(0) } });
+    expect(r.shiftDays).toEqual(['2026-09-21']);
+    expect(r.history[0]!.localDate).toBe('2026-09-21');
+  });
+  it('a plausible memo date is kept as written (E-16: 23:59 local counts for that day)', () => {
+    const r = run({ memos: [inMemo({ localDate: '2026-09-21', tzOffsetMin: 60 })], snapshot: { automation: null, miner: minerAfter(0) } });
+    expect(r.shiftDays).toEqual(['2026-09-21']);
   });
 });
 

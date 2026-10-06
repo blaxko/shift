@@ -4,7 +4,7 @@
 
 | Field | Value |
 |---|---|
-| Status | v1.7, build-ready. Items marked **[VERIFY]** must be confirmed in source before the dependent code is written |
+| Status | v1.8, build-ready. Items marked **[VERIFY]** must be confirmed in source before the dependent code is written |
 | Owner | Solo builder (product, engineering, demo) |
 | Builder | Human + Claude Code (see `shift-claude-code-prompt.md`) |
 | Target | CLOCK IN hackathon (Solana Mobile × Radiants): Mobile track + ORE matched prize |
@@ -22,6 +22,7 @@
 | 6 Oct 2026 | 1.5 | Decisions: OQ-7 accepted for the hackathon (final-round Checkpoint is the user's clock-out; new AC-6.5 and F8 copy: "Clock out within 24 h to keep your final round's rewards"); new P2 feature F14 (crank rebuilds its served-authority list from its own tx history, statelessly, and sends final-round Checkpoints); OQ-8 resolved: ComputeBudget priority-fee instructions stay, disclosure in PRD v1.4 + TRUST_MODEL is sufficient |
 | 6 Oct 2026 | 1.6 | Phase 6 clock-out: "End shift & withdraw" is the same single clock-out transaction (AC-7.3), no separate stop-only path; AC-7.4 explains the checkpoint look-ahead and the SHIFT-only close; new AC-7.5 (never clock out twice). AC-6.5 refined: the 24 h notice only when an unchecked round with a deployment exists (a 0-round shift never nags) |
 | 6 Oct 2026 | 1.7 | Go-live readiness: E-10 low-balance alert lowered from 0.05 to 0.01 SOL (executor funded with ~0.03 SOL; a deploy tx costs ~0.000005 SOL); Docker image verified; Railway runbook and go-live test plan added (docs/RAILWAY_RUNBOOK.md, docs/GO_LIVE_PLAN.md) |
+| 6 Oct 2026 | 1.8 | F9 implemented (streak, PTO, probation, timesheet): semantics the PRD left open are fixed and written into FR-9.2 / FR-9.3 (chronological PTO allocation, PTO days bridge but are not counted, today's miss is not a miss yet, probation counts shifts, window = first day + 6). Please veto any you disagree with |
 
 ---
 
@@ -328,8 +329,8 @@ Acceptance criteria:
 
 ### F9 — Timesheet, streak, PTO, probation (P1)
 - FR-9.1: The timesheet is a month calendar; a day is marked if any IN memo has that `localDate`.
-- FR-9.2: **Streak** = consecutive days ending today or yesterday, where a missed day is covered by **PTO**: one free missed day per ISO week, applied automatically and deterministically, oldest first.
-- FR-9.3: **Probation week:** for the first 7 days after the user's first shift, show "Probation: {n}/5 shifts". Completing it shows a **Hired** badge (client-side only).
+- FR-9.2: **Streak** = consecutive days ending today or yesterday, where a missed day is covered by **PTO**: one free missed day per ISO week, applied automatically and deterministically, oldest first. **Implementation (v1.8):** the history is scanned chronologically from the first shift day up to today (if there is a shift today) or yesterday (today's missing shift is not a miss yet). A worked day extends the run; a missed day is covered by that ISO week's PTO if it is unspent (so with two missed days in one week the OLDEST is covered), otherwise the run is broken to 0. A PTO-covered day bridges the gap but is **not counted** in the streak length. Several shifts on one day count once. Days dated in the future are ignored.
+- FR-9.3: **Probation week:** for the first 7 days after the user's first shift, show "Probation: {n}/5 shifts". Completing it shows a **Hired** badge (client-side only). **Implementation (v1.8):** the window is the first shift's day plus the next 6 days; probation counts **shifts** (clock-ins), so several in one day each count; the badge is derived from the ledger, so it survives a reinstall; if the week passes without 5 shifts nothing is shown.
 - FR-9.4: Reject a `localDate` that differs from the transaction's `blockTime` by more than 36 h; treat it as the `blockTime` date instead.
 - **AC-9.1** Streak calculation SHALL be a pure function with tests: no shifts, a single day, consecutive days, one gap covered by PTO, two gaps in one week (breaks), a timezone-boundary case.
 - **AC-9.2** WHEN rebuilt from chain on a fresh install THE APP SHALL show the same streak as before the reinstall.

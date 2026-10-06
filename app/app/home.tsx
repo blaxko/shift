@@ -5,6 +5,8 @@ import React from 'react'
 import { Banner, Btn, Card, H1, H2, P, ProgressBar, Row, Screen } from '@/src/components/ui'
 import { describePayslip, CLOCK_OUT_NOTICE } from '@/src/domain/payslipText'
 import { formatSecondsLeft, formatSol, speakSol } from '@/src/domain/format'
+import { computeStreak, localToday } from '@/src/domain/streak'
+import { describeStreak } from '@/src/domain/streakText'
 import { useShiftData } from '@/src/services/useShiftData'
 import { useShiftWallet } from '@/src/services/wallet'
 import { ellipsify } from '@/utils/ellipsify'
@@ -20,6 +22,8 @@ export default function Home() {
   }
 
   const cur = data.result?.current
+  const days = data.result?.shiftDays ?? []
+  const streak = describeStreak(computeStreak(days, localToday()))
   const last = data.result?.history[0]
   const live = cur && (cur.status === 'active' || cur.status === 'paused' || cur.status === 'paying')
 
@@ -35,6 +39,17 @@ export default function Home() {
           {data.error?.userMessage ?? "Couldn't refresh."}
           {data.updatedAt ? ` Last updated ${new Date(data.updatedAt * 1000).toLocaleTimeString()}.` : ''}
         </Banner>
+      )}
+
+      {days.length > 0 && (
+        <Card>
+          <P style={{ fontWeight: '800' }}>{streak.streakLine}</P>
+          <P muted>{streak.ptoLine}</P>
+          {streak.riskLine && <P>{streak.riskLine}</P>}
+          {streak.probationLine && <P>{streak.probationLine}</P>}
+          {streak.hiredBadge && <P style={{ fontWeight: '800' }} accessibilityLabel="Hired. You completed your probation week.">{streak.hiredBadge}</P>}
+          <Btn kind="secondary" title="Timesheet" onPress={() => router.push('/timesheet')} />
+        </Card>
       )}
 
       {live ? (

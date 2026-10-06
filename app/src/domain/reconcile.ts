@@ -3,6 +3,7 @@
 import type { Automation, Miner, ShiftInMemo, ShiftOutMemo } from '@shift/codec';
 import type { PublicKey } from '@solana/web3.js';
 import { ROUND_SECONDS } from '../config/planning';
+import { effectiveLocalDate } from './streak';
 import { IN_SIG_PREFIX_LENGTH, type CrankStatus, type LocalHints, type Payslip, type ReconcileResult, type ShiftStatus } from './shift';
 
 export interface ChainSnapshot {
@@ -94,7 +95,7 @@ export function reconcile(input: ReconcileInput): ReconcileResult {
       shiftId: inn.signature,
       status,
       role: inn.role,
-      localDate: inn.localDate,
+      localDate: effectiveLocalDate(inn.localDate, inn.tzOffsetMin, inn.blockTime), // FR-9.4 / E-15
       inBlockTime: inn.blockTime,
       outSignature: out?.signature ?? null,
       outBlockTime: out?.blockTime ?? null,
@@ -125,5 +126,6 @@ export function reconcile(input: ReconcileInput): ReconcileResult {
 
   const history = [...payslips].reverse();
   const latest = history[0];
-  return { current: latest && latest.status !== 'paid' ? latest : undefined, history, pendingClockInSignature };
+  const shiftDays = payslips.map((p) => p.localDate).sort(); // oldest first, duplicates kept (one per clock-in)
+  return { current: latest && latest.status !== 'paid' ? latest : undefined, history, shiftDays, pendingClockInSignature };
 }

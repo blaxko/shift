@@ -7,22 +7,13 @@ import { Banner, Btn, Card, Choice, H2, P, Row, Screen } from '@/src/components/
 import { BUDGET_PRESETS_LAMPORTS, LENGTH_PRESETS_MINUTES } from '@/src/config/planning'
 import { CRANK_PUBKEY } from '@/src/config/constants'
 import { ROLES, ROLE_ORDER } from '@/src/config/roles'
-import { checkBalance, costBreakdown, type CostKind } from '@/src/domain/costs'
+import { checkBalance, costBreakdown, costLabel, costSpoken } from '@/src/domain/costs'
 import { classifyExisting } from '@/src/domain/conflict'
 import type { AppError } from '@/src/domain/errors'
 import { formatBps, formatMinutes, formatSol, formatSolExact, formatSolUp, speakSol } from '@/src/domain/format'
 import { planShift, type ShiftPlan } from '@/src/domain/planShift'
 import { loadWalletChainState, type WalletChainState } from '@/src/services/chain'
 import { useShiftWallet } from '@/src/services/wallet'
-
-const COST_LABEL: Record<CostKind, string> = {
-  budget: 'Shift budget',
-  'automation-rent': 'ORE automation account rent',
-  'miner-rent': 'ORE miner account rent',
-  'checkpoint-reserve': 'ORE checkpoint reserve',
-  'executor-fees': 'Executor fees (from the budget)',
-  'network-fee': 'Network fee (estimate)',
-}
 
 const REASON_TEXT = {
   'min-per-square': "to meet ORE's minimum",
@@ -159,9 +150,9 @@ export default function Setup() {
               {breakdown.lines.map((l) => (
                 <Row
                   key={l.kind}
-                  label={`${COST_LABEL[l.kind]} — ${l.refundable ? 'Refundable' : 'Not refundable'}`}
+                  label={costLabel(l.kind, l.refundable)}
                   value={`${formatSolExact(l.lamports)} SOL`}
-                  a11yValue={`${speakSol(l.lamports)}, ${l.refundable ? 'refundable' : 'not refundable'}`}
+                  a11yValue={`${speakSol(l.lamports)}, ${costSpoken(l.kind, l.refundable)}`}
                 />
               ))}
               <Row label="Total leaving your wallet now" value={`${formatSolExact(breakdown.totalLeavingWalletNow)} SOL`} strong a11yValue={speakSol(breakdown.totalLeavingWalletNow)} />

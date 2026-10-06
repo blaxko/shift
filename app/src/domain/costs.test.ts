@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkBalance, costBreakdown, type ChainCostContext } from './costs';
+import { checkBalance, costBreakdown, costLabel, costSpoken, type ChainCostContext } from './costs';
 import { planShift, type ShiftPlan } from './planShift';
 
 const plan = (budget: bigint): ShiftPlan => {
@@ -46,6 +46,23 @@ describe('costBreakdown (FR-2.1, AC-2.5)', () => {
   it('executor fee line equals the plan total', () => {
     const p = plan(50_000_000n);
     expect(costBreakdown(p, fresh).lines.find((l) => l.kind === 'executor-fees')?.lamports).toBe(p.totalFeeLamports);
+  });
+});
+
+describe('cost line copy (AC-2.5, device S-2 copy fix)', () => {
+  it('budget line is "at risk (unspent part returned)", never plain "Refundable"', () => {
+    expect(costLabel('budget', true)).toBe('Shift budget — at risk (unspent part returned)');
+    expect(costLabel('budget', true)).not.toContain('Refundable');
+    expect(costSpoken('budget', true)).toBe('at risk, unspent part returned');
+  });
+  it('every other line says Refundable or Not refundable', () => {
+    const b = costBreakdown(plan(20_000_000n), fresh);
+    for (const l of b.lines.filter((x) => x.kind !== 'budget')) {
+      expect(costLabel(l.kind, l.refundable)).toMatch(l.refundable ? / — Refundable$/ : / — Not refundable$/);
+      expect(costSpoken(l.kind, l.refundable)).toBe(l.refundable ? 'refundable' : 'not refundable');
+    }
+    expect(costLabel('automation-rent', true)).toBe('ORE automation account rent — Refundable');
+    expect(costLabel('miner-rent', false)).toBe('ORE miner account rent — Not refundable');
   });
 });
 

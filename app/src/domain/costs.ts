@@ -103,3 +103,20 @@ export function checkBalance(balanceLamports: bigint, breakdown: CostBreakdown, 
   const needed = breakdown.totalLeavingWalletNow + feeReserve;
   return balanceLamports >= needed ? { ok: true, neededLamports: needed } : { ok: false, neededLamports: needed, shortfallLamports: needed - balanceLamports };
 }
+
+const COST_LABEL: Record<CostKind, string> = {
+  budget: 'Shift budget',
+  'automation-rent': 'ORE automation account rent',
+  'miner-rent': 'ORE miner account rent',
+  'checkpoint-reserve': 'ORE checkpoint reserve',
+  'executor-fees': 'Executor fees (from the budget)',
+  'network-fee': 'Network fee (estimate)',
+};
+
+/** AC-2.5: every cost line says whether it can come back. The budget is the max-loss figure, so it reads "at risk (unspent part returned)". */
+export const costLabel = (kind: CostKind, refundable: boolean): string =>
+  kind === 'budget' ? `${COST_LABEL.budget} — at risk (unspent part returned)` : `${COST_LABEL[kind]} — ${refundable ? 'Refundable' : 'Not refundable'}`;
+
+/** TalkBack wording for the same distinction (NFR-A2). */
+export const costSpoken = (kind: CostKind, refundable: boolean): string =>
+  kind === 'budget' ? 'at risk, unspent part returned' : refundable ? 'refundable' : 'not refundable';

@@ -3,11 +3,10 @@
 Status key: ✅ done and verified · 🟡 partly / needs your action · ❌ not done · ❓ requirement not verified (could not find it in an official source; **check it yourself**).
 Last updated 2026-10-06.
 
-## 0. CRITICAL — confirm the real deadline today
-- The official page says **"October 8, 2026"** with **no time zone** (as read on 2026-10-06). `docs/PRD.md` assumes **9 Oct 2026 06:59 UTC** (≈ 8 Oct 23:59 PDT).
-- Our internal plan: feature freeze **8 Oct 18:00 UTC**, submit by **8 Oct 23:00 UTC**. If the real cutoff is 8 Oct in an earlier zone (e.g. 00:00 UTC on 8 Oct, or 23:59 in a zone ahead of UTC), **this plan is too late.**
-- [ ] Open the submission platform (where you will actually upload) and read the exact cutoff with its time zone. Write it here: **[FILL: deadline + zone]**.
-- [ ] If earlier than the PRD assumes, move the freeze accordingly and tell me; the live-loop test (about 1 h 20 min including liveness) must fit before it.
+## 0. Deadline (CONFIRMED by the user from the official page)
+- **Submissions due 9 Oct 2026 at 07:59 GMT+1 = 9 Oct 06:59 UTC** (the "October 8" on the page is the same moment in US time). Matches the PRD.
+- Internal plan unchanged: feature freeze **8 Oct 18:00 UTC**; submit well before 9 Oct 06:59 UTC.
+- [ ] The user will also check the cutoff on the upload form itself.
 
 ## 1. Functional APK
 | Item | Status | Evidence / action |
@@ -26,7 +25,7 @@ Last updated 2026-10-06.
 | README (pitch, flow, status, repo map, build, sideload note) | ✅ | `README.md` |
 | No secrets in tree or history | ✅ | `node scripts/secret-scan.mjs` CLEAN on full history; key files in `.gitignore` |
 | Personal email not exposed | ✅ | all commits use the no-reply address (verified after the push) |
-| Licence | 🟡 optional | None chosen. Hackathons usually don't require one, but a missing licence means "all rights reserved". Pick MIT/Apache-2.0 only if you want that **(your decision, I haven't added one)** |
+| Licence | ✅ | MIT (`LICENSE`, README badge) |
 | Docs a judge can follow | ✅ | `docs/PRD.md`, `TRUST_MODEL.md`, `ORE_NOTES.md`, `PROGRESS.md` (ACs with verification method) |
 | Final push contains the latest commit | 🟡 | Verify `git rev-parse HEAD` equals GitHub's `main` before submitting |
 
@@ -57,7 +56,13 @@ Last updated 2026-10-06.
 | Item | Status | Evidence / action |
 |---|---|---|
 | Real ORE integration (not a mock) | ✅ | Uses ORE's own `Automate`/`Deploy`/`Checkpoint`/`Claim*` on program `oreV3EG1…`; bytecode verified against source `48c203bd`; read-only mainnet simulations of every builder (`docs/ORE_NOTES.md` §10) |
-| ORE prize eligibility terms | ❓ | A $30k ORE prize was announced, but **I could not find its terms** (criteria, whether a mainnet run is needed, how to register). **[ACTION: read ORE's announcement/Discord and write the exact criteria here: FILL]** |
+| ORE matched-prize terms (official, supplied by the user) | ✅ known | ONE matched prize, only for the strongest qualifying ORE integration that places in the Clock In Top 10; it matches that project's placement prize ($30k for 1st … $5k for 6th–10th). ORE decides qualification at its sole discretion. Requirements below |
+| Working, user-facing ORE integration live in the submitted product | 🟡 | Built; **needs the live mainnet loop** and a final APK pointing at the live executor |
+| ORE is a core part of the product | ✅ | SHIFT is entirely a wrapper around ORE's automation; no other mining supported |
+| Integration stays live and actively supported after the hackathon | ❌ commitment | Executor must keep running and funded (Railway, executor SOL); decide who/what pays for it and note it in the README |
+| Milestone-based deliverables agreed with ORE after the hackathon (paid in stages) | ❌ post-hackathon | Roadmap slide 7 proposes candidates: shift-end notification, final-round sweep, crews/staking; to be agreed with ORE |
+| Short progress updates incl. usage metrics | 🟡 | Metrics we can report: shifts per user in week one, clock-out rate, signatures per day, crash-free sessions. **The app has no analytics (by design); metrics must come from on-chain SHIFT memos** — a small script that counts `SHIFT1|IN` / `SHIFT1|OUT` memos would be needed (not built) |
+| ORE meaningfully included in launches, demos, content, social | ❌ | Plan: every artefact (deck, video, README, posts) names ORE; video opens on ORE's grid |
 | Evidence of ORE activity on mainnet | ❌ | Needs the live loop. After it: explorer links to the IN memo, the executor's Deploy txs, the OUT memo; save them in `docs/submission/evidence.md` |
 | No contradiction with ORE's terms | ❓ | Check that permissionless-executor automation is fine under ORE's rules (it is a documented on-chain mode; 40 existing automations use it) |
 

@@ -1,5 +1,7 @@
 # SHIFT
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 **Clock in once. ORE works your shift. Get paid at clock-out.**
 
 SHIFT is an Android app for Solana Seeker phones (and any phone with a Mobile Wallet Adapter wallet) that turns [ORE](https://ore.com) mining into a simple daily ritual instead of a round-by-round grid game.
@@ -56,4 +58,4 @@ The APK is not from the Play Store, so Android's **Play Protect** may block it. 
 
 ## License
 
-Not yet specified.
+[MIT](LICENSE).

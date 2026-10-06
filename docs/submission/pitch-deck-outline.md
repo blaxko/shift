@@ -17,10 +17,12 @@
 
 ## Slide 2 — Research
 **On the slide:** three columns: *Who*, *What fails today*, *What we measured*.
-- **Who [VERIFY before presenting; from our project brief, not independently re-checked]:** 200K+ Seekers shipped, 800+ dApp Store apps, 25%+ of ORE mining on Seeker.
+- **Who:** 200K+ Seekers shipped (Solana Mobile blog); 25%+ of ORE mining via Seeker (Blockworks). **800+ dApp Store apps: [VERIFY or drop]** — no source supplied.
 - **What fails:** manual play needs attention every round; third-party automining works but is raw (no ritual, unclear results); other Seeker apps reviewed describe crashes on reopen and lost wallet sessions **[VERIFY: cite the reviews you read]**.
 - **What we measured on mainnet (2026-10-04..06, all reproducible with scripts in the repo):** a round cycle is **78.3 s** (53 consecutive rounds, `scripts/measure-rounds.ts`); **260** automations exist and **40** funded ones already use a "permissionless executor" mode, so the primitive we build on is real and in use; the program's deployed bytecode is **verified against the exact source commit** we read (`48c203bd`, OtterSec); ORE changed the chain's rent between two days of our build, which is why SHIFT reads rent live and never hard-codes it.
 - **The falsifiable bet:** testers complete ≥ 4 shifts in their first 7 days and ≥ 80 % of started shifts end with a clock-out.
+
+**Sources to cite aloud or in footnote:** Solana Mobile blog, "SMS goes global and Season 2 wrap-up" (https://solanamobile.com/blog/sms-goes-global-and-season-2-wrapup) for 200K+ Seekers shipped; Blockworks, "ORE dashboard primer" (https://blockworks.com/insights/ore-dashboard-primer) for 25%+ of ORE mining via Seeker. (800+ dApp Store apps is still unsourced: [VERIFY] or drop it.)
 
 **Speaker notes (30 s):** "We didn't guess the protocol. We read the program source, verified the deployed bytecode matches it, and measured real rounds. That's why the app's numbers are right: it reads the chain instead of trusting a spec."
 **Earns:** innovation (grounded integration), product-market fit.
@@ -69,7 +71,8 @@ Callouts:
 **On the slide:** three bands. Mark done vs next honestly.
 - **Built:** wallet connect (MWA), shift setup with itemised costs, one-signature clock-in, executor crank, payslip rebuilt from chain, one-signature clock-out, timesheet/streak/PTO/probation. **[FILL: live-loop result: "N rounds, X % deployed, payslip matched the explorer"]**
 - **Next (P1, weeks):** shift-end notification, shareable payslip card, in-app executor status ("paused — your funds are safe"), crank rebuilds the list of people it served from its own history so the *final* round is checkpointed even if you never reopen the app.
-- **ORE milestones (from our PRD §12, post-hackathon):** crews and leaderboards; staking claimed ORE; more roles tuned from live round data. Also: publish to the Solana dApp Store.
+- **ORE matched prize (official terms):** one matched prize for the strongest qualifying ORE integration in the Top 10. SHIFT qualifies on the face of it: ORE is the *only* engine and the core of the product. We commit to keep the integration live and supported, to agree milestone deliverables with ORE after the hackathon, to send short progress updates with usage metrics, and to feature ORE in every launch, demo and post. ORE decides qualification at its sole discretion — say so, don't claim it.
+- **Proposed ORE milestones (post-hackathon, to agree with ORE):** (1) shift-end notification + final-round sweep so no rewards are forfeited; (2) usage metrics from on-chain SHIFT memos (shifts/user, clock-out rate); (3) crews and leaderboards; (4) staking claimed ORE; more roles tuned from live round data. Also: publish to the Solana dApp Store.
 - **Metric we will report:** shifts per user in week one; clock-out rate; signatures per day (target ≤ 2); crash-free sessions.
 
 **Speaker notes (30 s):** "We built the whole loop and kept the scope honest: what's on the left works today. Next is polish that makes it a habit: a notification when your shift ends, a share card, and an in-app status for the executor. After the hackathon, the ORE-native features: crews and staking."
@@ -91,7 +94,7 @@ Callouts:
 - [ ] "Works with Seed Vault": only if the demo ran on a Seeker. The test device so far was a non-Seeker phone with Phantom over MWA. If that stays true, say **"Mobile Wallet Adapter (tested with Phantom; designed for Seed Vault)"**.
 - [ ] Ecosystem numbers on slide 2 marked [VERIFY].
 - [ ] "Share card", "notification", "executor status in the app" are **not built**: keep them on the Next band, never on Built.
-- [ ] Anything about ORE-prize eligibility: the prize terms were not found publicly (see `submission-checklist.md`).
+- [x] ORE prize terms now known (official, via user); never state that we *will* win it — ORE decides at its sole discretion.
 
 ## Q&A cheat-sheet (likely judge questions → honest answers)
 | Question | Answer |

@@ -2,7 +2,7 @@
 import type { Connection, PublicKey } from '@solana/web3.js';
 import { LayoutMismatch, SIZE, decode, pdas } from '@shift/codec';
 import type { ChainResult, WalletChainState } from '../domain/chainState';
-import { appError, type AppError } from '../domain/errors';
+import { appError } from '../domain/errors';
 
 export type { ChainResult, WalletChainState };
 

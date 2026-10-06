@@ -1,5 +1,16 @@
 # Progress
 
+## 2026-10-06 Phase 3 — clock in (built + unit-verified; AWAITING executor public key + device S-3)
+- Done earlier today (S-2 findings): rent is now read live only (cluster rent changed 6960 -> 5080 lamports/byte; ORE charges exactly the RPC minimum, proven by simulation), no rent constants in shipped source (unit scan + RUN_LIVE drift check); budget line copy; Diagnostics sample optional. PRD v1.3.
+- Done (219 unit tests green, app tsc + expo lint clean, Metro bundles 1815 modules):
+  - domain/clockIn.ts: builder [stop (idle shell only)] -> Automate -> IN memo (baselines from Miner, setupLamports, date/tz); pre-sign guard re-decoding the real instructions (NFR-S2/S3/S4: deposit == displayed budget and <= 0.5 SOL, reload bytes 0, Preferred, executor == crank, own PDAs only, one memo last, no other programs; tamper tests); describeSimError.
+  - domain/clockInFlow.ts (pure, dependency-injected): fresh read + conflict check, balance re-check, simulate BEFORE the wallet (AC-3.3), E-2 decline -> cancelled, unknown send -> wait for blockhash expiry then reconcile (automation by crank or matching IN memo) before any retry (AC-3.4, E-3, E-4), never touches a foreign automation (AC-3.5). Shared submitAndConfirm also powers the early end-shift.
+  - UI: Setup Clock in -> /clockin (final confirm, status texts, outcome handling, re-entrancy guard) -> /active (reads chain; budget left, rounds covered, explorer link) ; Home shows a running shift.
+  - SCOPE NOTE (flag): added an early slice of F7, "End shift & withdraw" (stop instruction + confirmation of the returned amount), so test funds are never stranded before Phase 4/6. Phase 6 still owns Checkpoint/ClaimORE/ClaimSOL/OUT memo and AC-7.x.
+- AC status: unit-verified, device pending S-3: AC-3.1, AC-3.2, AC-3.3, AC-3.4, AC-3.5, E-2 (E-3/E-4 logic unit-tested). NFR-S3/NFR-S4 invariants: unit-tested at builder AND pre-sign-guard level. AC-1.5 still deferred: it is exercised by the first signing action in S-3.
+- Blocked on user: (1) the executor PUBLIC key for EXPO_PUBLIC_CRANK_PUBKEY (eas.json smoke env); (2) running DEVICE_TEST S-3 (spends real SOL: ~0.0045 net).
+- Next: Phase 4 (crank, DRY_RUN only until you say go live): round loop, Deploy + Checkpoint, /health, AC-4.x incl. AC-4.6.
+
 ## 2026-10-05 Phase 2 — wallet, planShift, Welcome/Home/Setup (AWAITING DEVICE S-2)
 - Done (verified by unit tests, 166 green; app tsc + expo lint clean; Metro bundles 1809 modules):
   - AC-2.4 PASSING: planShift unit tests (all 27 preset combos, hand-computed values, MIN_PER_SQUARE and 5% fee boundaries incl. exact thresholds, NFR-S3 cap, property sweep).

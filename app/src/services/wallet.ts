@@ -7,7 +7,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { useCallback, useEffect, useState } from 'react';
 import { useMobileWallet, type Cache, type WalletAuthorization } from '@wallet-ui/react-native-web3js';
-import type { PublicKey } from '@solana/web3.js';
+import type { PublicKey, VersionedTransaction } from '@solana/web3.js';
 import { deserializeAuth, serializeAuth } from '../domain/authCache';
 import type { AppError } from '../domain/errors';
 import { classifyWalletError } from '../domain/walletErrors';
@@ -68,5 +68,9 @@ export function useShiftWallet() {
     }
   }, [w, store]);
 
-  return { ready, address: w.account?.address ?? null, connection: w.connection, connect, disconnect };
+  // NFR-S1: signing only ever happens inside the wallet app. This is the one signing entry point and it is only called
+  // by the guarded flows in domain/clockInFlow.ts.
+  const signAndSend = useCallback((tx: VersionedTransaction, minContextSlot: number) => w.signAndSendTransaction(tx, minContextSlot), [w]);
+
+  return { ready, address: w.account?.address ?? null, connection: w.connection, connect, disconnect, signAndSend };
 }

@@ -1,5 +1,5 @@
 // F2 — Shift setup: role -> budget -> length -> review card. FR-2.1, FR-2.2, AC-2.1-2.5, E-5, E-6, E-11.
-// Phase 2: NO signing code exists here. "Clock in" is wired in Phase 3.
+// No signing happens on this screen: Clock in only navigates to /clockin, where the guarded flow runs.
 import { router } from 'expo-router'
 import React, { useEffect, useMemo, useState } from 'react'
 import type { Role } from '@shift/codec'
@@ -76,8 +76,10 @@ export default function Setup() {
 
   const maintenance = chainError?.code === 'LAYOUT_MISMATCH'
   const blocked = existing?.kind === 'blocked'
-  // Phase 3 enables signing. Until then the button never does anything.
-  const clockInBlockReason = maintenance
+  // '' means "enabled". Every blocking reason is shown under the button; nothing signs from this screen (it only navigates).
+  const clockInBlockReason = !CRANK_PUBKEY
+    ? 'The SHIFT executor is not configured in this build'
+    : maintenance
     ? 'ORE maintenance mode'
     : !plan
       ? 'Choose a valid shift'
@@ -87,7 +89,7 @@ export default function Setup() {
           ? 'You already have an ORE automation'
           : balance && !balance.ok
             ? 'Not enough SOL'
-            : 'Signing is added in the next build'
+            : ''
 
   return (
     <Screen>
@@ -188,10 +190,11 @@ export default function Setup() {
 
       <Btn
         title="Clock in"
-        disabled
-        accessibilityHint={clockInBlockReason}
+        disabled={clockInBlockReason !== ''}
+        accessibilityHint={clockInBlockReason || 'Shows a final confirmation before anything is signed'}
+        onPress={() => router.push({ pathname: '/clockin', params: { role, budget: budget.toString(), minutes: String(minutes) } })}
       />
-      <P muted>{clockInBlockReason}</P>
+      {clockInBlockReason !== '' && <P muted>{clockInBlockReason}</P>}
       <Btn kind="secondary" title="How SHIFT works & risks" onPress={() => router.push('/risks')} />
     </Screen>
   )

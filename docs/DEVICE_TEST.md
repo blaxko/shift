@@ -91,3 +91,30 @@ On any failure: if you have `adb`, `adb logcat -s ReactNativeJS:V ReactNative:V 
 
 ### Please report back
 Pass/fail for S-2.1 … S-2.14 (S-2.6 and S-2.13 may be "skipped"), the Total / Balance / shortfall numbers you see in S-2.8–2.9 (they must match the ones above to the digit shown), device + Android version, and one screenshot of the full review card (before and after the 0.0500 SOL switch).
+
+---
+
+## S-3 — Phase 3: ONE real clock-in on mainnet, then end it (F3; AC-3.1, 3.2, 3.3, 3.4, 3.5, E-2)
+
+**This spends real (small) SOL.** Use the funded test wallet. Budget **0.02 SOL**, role **Balanced**, **1 h** (the defaults).
+
+**Before building:** I need the executor's **public** key. Put it in `app/eas.json` under the `smoke` profile's `env` as `"EXPO_PUBLIC_CRANK_PUBKEY": "<public key>"` (I never see or handle the secret), commit, then build + install exactly as in S-1. Without it the **Clock in** button stays disabled with the reason "The SHIFT executor is not configured in this build".
+
+**Important about funds:** the crank is not built yet (Phase 4), so **no rounds will be played** and your 0.02 SOL simply sits in the automation. Step S-3.8 returns it with the app's early **End shift & withdraw** button (the stop instruction; claims + payslip come in Phase 6). If anything goes wrong, ORE's own app can also stop an automation. Note your wallet balance **before** you start.
+
+Expected cost of this whole test (rent is read live, so these are for 2026-10-06 rent): clock-in takes 0.02 + 0.00146304 (refundable rent) + 0.0044704 + 0.00001 (the two non-refundable setup costs) + network fee. Ending the shift returns 0.02 + 0.00146304. **Net cost ≈ 0.0044804 SOL setup + two network fees (~0.00001 total).**
+
+| ID | AC | Step | Expected | Result |
+|---|---|---|---|---|
+| S-3.1 | — | Home → Start a shift (defaults) → review card → **Clock in** | Button enabled. Opens **Confirm your shift** (Max you can lose 0.0200 SOL, role, rounds 46, executor fees 0.000046). Nothing is signed yet | |
+| S-3.2 | E-2 | Tap **Confirm and sign**, then **decline** in the wallet | Banner "Cancelled — nothing was sent." and a **Try again** button. Wallet balance unchanged. Confirming status text appears in order: "Checking your wallet…", "Checking the transaction…", "Approve in your wallet…" | |
+| S-3.3 | AC-3.1, 3.2 | Tap **Try again**, **approve** in the wallet | Wallet shows ONE transaction (may show as an ORE program call + memo). Then "Confirming on the network…" and the **Your shift is running** screen: Budget left **0.0200 SOL**; Each round `0.000043378 SOL × 10 squares + fee 0.000001`; Rounds covered **46** | |
+| S-3.4 | AC-3.1 | Tap **View the clock-in transaction** (opens explorer) | Exactly one transaction; instructions: **Ore** program (Automate) and **Memo** with text `SHIFT1|IN|balanced|20000000|43378|10|1000|4480400|0|0|0|<your date>|<your tz minutes>` | |
+| S-3.5 | AC-3.2 | Compare wallet balance now vs before | Down by ≈ **0.02595344 SOL + one network fee** (0.02 budget + 0.00146304 + 0.0044704 + 0.00001) | |
+| S-3.6 | AC-3.5 | Go Home → Start a shift → Clock in again | Home shows **Your shift is running** instead of Start a shift. If you reach the confirm screen and sign: you get "You already have a SHIFT shift running." and **no wallet prompt** | |
+| S-3.7 | E-3 (optional, advanced) | Not required. If you want to test it: start a clock-in, and while the wallet approval sheet is open force-stop SHIFT, then approve in the wallet and reopen SHIFT | Home shows **Your shift is running** (the chain is the truth); a second clock-in is refused | |
+| S-3.8 | F7-early | On **Your shift is running** tap **End shift & withdraw** → read the confirmation → **Confirm: end shift** → approve | Confirmation says it returns about **0.0215 SOL** (budget 0.02 + deposit 0.00146304). After approval: "Shift ended". Wallet balance returns to ≈ start − 0.0044804 − network fees. Home shows **Start a shift** again | |
+| S-3.9 | AC-3.3 | (Only if easy) Empty the wallet below the cost, e.g. try a 0.1 SOL budget with ~0.05 SOL | **Clock in is disabled** with "Not enough SOL" (the simulation guard is exercised in unit tests; on device you cannot reach it without a funds race) | |
+
+### Please report back
+Pass/fail for S-3.1 … S-3.9, the wallet balance **before / after clock-in / after end shift** (so I can check the cost arithmetic to the lamport), the explorer link or signature of the clock-in and of the end-shift transactions, device + Android version, and any red text verbatim.

@@ -2,13 +2,15 @@
 // No signing happens on this screen: Clock in only navigates to /clockin, where the guarded flow runs.
 import { router } from 'expo-router'
 import React, { useEffect, useMemo, useState } from 'react'
+import { Linking } from 'react-native'
 import type { Role } from '@shift/codec'
 import { Banner, Btn, Card, Choice, H2, P, Row, Screen } from '@/src/components/ui'
 import { BUDGET_PRESETS_LAMPORTS, LENGTH_PRESETS_MINUTES } from '@/src/config/planning'
-import { CRANK_PUBKEY } from '@/src/config/constants'
+import { CRANK_PUBKEY, IS_MAINNET } from '@/src/config/constants'
 import { ROLES, ROLE_ORDER } from '@/src/config/roles'
 import { checkBalance, costBreakdown, costLabel, costSpoken } from '@/src/domain/costs'
 import { classifyExisting } from '@/src/domain/conflict'
+import { ORE_APP_URL, clockInBlockReason as clockInGate } from '@/src/domain/clockInGate'
 import type { AppError } from '@/src/domain/errors'
 import { formatBps, formatMinutes, formatSol, formatSolExact, formatSolUp, speakSol } from '@/src/domain/format'
 import { planShift, type ShiftPlan } from '@/src/domain/planShift'
@@ -77,19 +79,15 @@ export default function Setup() {
   const maintenance = chainError?.code === 'LAYOUT_MISMATCH'
   const blocked = existing?.kind === 'blocked'
   // '' means "enabled". Every blocking reason is shown under the button; nothing signs from this screen (it only navigates).
-  const clockInBlockReason = !CRANK_PUBKEY
-    ? 'The SHIFT executor is not configured in this build'
-    : maintenance
-    ? 'ORE maintenance mode'
-    : !plan
-      ? 'Choose a valid shift'
-      : !chain
-        ? 'Checking your wallet…'
-        : blocked
-          ? 'You already have an ORE automation'
-          : balance && !balance.ok
-            ? 'Not enough SOL'
-            : ''
+  const clockInBlockReason = clockInGate({
+    mainnet: IS_MAINNET,
+    crankConfigured: !!CRANK_PUBKEY,
+    maintenance,
+    planOk: !!plan,
+    chainLoaded: !!chain,
+    blockedByExisting: blocked,
+    insufficientBalance: !!balance && !balance.ok,
+  })
 
   return (
     <Screen>
@@ -185,6 +183,7 @@ export default function Setup() {
                 : 'You already have an ORE automation with funds or run by someone else. SHIFT will not change it. Stop it in the ORE app first, then come back.'}
             </Banner>
           )}
+          {existing?.kind === 'blocked' && existing.why === 'foreign' && <Btn kind="secondary" title="Open ORE to stop it" onPress={() => void Linking.openURL(ORE_APP_URL)} />}
         </Card>
       )}
 

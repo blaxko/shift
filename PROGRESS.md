@@ -1,5 +1,57 @@
 # Progress
 
+## 2026-10-06 Phase 8 prep (device-free): edge cases E-1..E-25 and accessibility NFR-A1..A5
+
+Legend. **Tested** = covered by a named automated test (unit, or read-only mainnet simulation). **Device** = also needs a real-phone check in docs/DEVICE_TEST.md before it counts as passed (listed, not yet run). **Deferred** = not built yet, with the reason. Nothing below is marked "passed on device" unless the user reported it.
+
+### Gaps this walk found and fixed (all with tests)
+- **E-6:** the "link to ORE's app to stop it" did not exist. Added an "Open ORE to stop it" button (https://ore.com, URL checked) on Setup and on the clock-in screen. `clockInGate.test.ts`.
+- **E-12:** the 1/2/4/8 s (max 30 s) backoff was not implemented. `retryDelayMs` (1, 2, 4, 8, 16, 30 s) now drives automatic retries in `useShiftData`, stopped when the screen loses focus. `gate.test.ts`.
+- **E-23:** a devnet build would still have attempted mainnet ORE actions. Clock in is now disabled with "ORE only runs on mainnet" and `useFlow` refuses to run any ORE flow off mainnet. `gate.test.ts`.
+- **E-18:** was "handled" with no test; added one (200 ORE win renders normally). `payslipText.test.ts`.
+- **NFR-A3:** the light-theme border token measured **2.54:1** on white (2.31:1 on cards), below the 3:1 bar for UI components; raised. All text/surface pairs are now asserted in both themes (`theme.test.ts`, 29 checks).
+
+### Edge cases
+| ID | Status | Evidence / what remains |
+|---|---|---|
+| E-1 No MWA wallet | Tested; Device (S-2.6) | `classifyWalletError` incl. the exact message seen on a real phone (`misc.test.ts`); Welcome shows the panel + Play Store search link |
+| E-2 Rejects signing | Tested; Device (S-3.2) | `clockInFlow.test.ts`, `clockOutFlow.test.ts`: codes -1/-3 -> `cancelled`, no polling, no reconcile |
+| E-3 Session drops after signing | Tested | clock-in and clock-out: wait for blockhash expiry, reconcile, never a second submit |
+| E-4 Blockhash expired | Tested | retryable `EXPIRED` only after a final status check + reconcile found nothing |
+| E-5 Insufficient SOL | Tested; **Device PASSED** (S-2: "You need 0.0360 SOL more", Clock in disabled) | `costs.test.ts`, flow re-check at submit time, gate |
+| E-6 Existing automation | Tested; mainnet-simulated | idle shell: close + `Automate` in ONE tx (simulation case A); funded/foreign/running: blocked, nothing built (`conflict`, flow, gate tests); ORE link added today |
+| E-7 Pre-existing rewards | Tested | `oreEarlier` baseline excluded and labelled "earlier rewards" (`reconcile`, `payslipText`); clock-out claims everything (ClaimORE bps 10000, guard-enforced) |
+| E-8 Claimed outside SHIFT | Tested | ORE counter drop -> notice, figure clamped to 0 (`reconcile.test.ts`) |
+| E-9 Crank offline | Partly Deferred | Funds-safe + withdraw path Tested (clock-out does not depend on the crank). The app **Paused** banner needs `/health` (F11, paused); `reconcile` supports `paused` (Tested) but the app passes `crankStatus: 'unknown'` |
+| E-10 Crank balance low | Crank side Tested; app side Deferred (F11) | `health.test.ts`, `loop.test.ts` (threshold 0.01 SOL); the app showing Paused on stall waits for F11 |
+| E-11 ORE layout change | Tested | decoders throw `LayoutMismatch` (fixtures); refresh returns a maintenance error; every signing flow refuses (`blocked: maintenance`); Setup shows the banner and disables Clock in |
+| E-12 RPC down | Tested; Device (S-2.14) | cached view + "Last updated" (`refresh.test.ts`); backoff function Tested, the timer wiring in the hook is device-checked only |
+| E-13 App killed / reboot | By construction; Device (S-4.3, S-4.8) | everything is rebuilt from chain; no local state needed |
+| E-14 Reinstall / data cleared | Tested; Device (S-4.6, S-5.10) | 60-day backfill rebuild (`refresh.test.ts`). The "notification not rescheduled" part is N/A until F8 |
+| E-15 Time zone / clock tampering | Tested | `streak.test.ts`: exact +-36 h boundary, future-dated days ignored |
+| E-16 23:59 clock-in | Tested | memo date wins over the UTC date (`streak.test.ts`) |
+| E-17 Leftover below one round | Tested | `reconcile.test.ts`: lingering account below one round is Complete; exactly one round is Active |
+| E-18 Motherlode / big win | Tested (added today) | shown normally; the P2 celebration is not built |
+| E-19 Same wallet, two devices | Tested logic; Device not planned | chain-derived state + conflict check refuse a second shift; per-device cache is wallet-keyed |
+| E-20 Memo look-alikes | Tested | 60 accept/reject cases + ledger scan ignores failed txs and foreign memos |
+| E-21 Notification permission denied | Deferred | F8 not built (paused) |
+| E-22 200 % font / TalkBack | Code done today; Device (S-2.13) | see accessibility table |
+| E-23 Devnet/mainnet | Tested; Device not needed | single `CLUSTER` constant, DEVNET badge, ORE disabled off-mainnet. Note: the codec's program IDs are mainnet-only by design, and the crank has no cluster setting (it uses whatever `RPC_URL` it is given: it must be a mainnet URL) |
+| E-24 Clock-out with nothing to claim | Tested; mainnet-simulated | memo-only transaction (simulation case E2); `clockOut.test.ts` |
+| E-25 End within the first round | Tested; Device (S-5) | 0 rounds, full refund, loss = setup only (`reconcile.test.ts`) |
+
+**Tally (25):** 22 handled and tested (two of them, E-13 and E-22, rest on construction / code review plus unit-tested helpers and need the device to close), 2 partly deferred (E-9, E-10: the app's Paused banner waits for F11), 1 deferred (E-21: F8). Zero cases are marked handled without evidence. Device-pending lines are all in docs/DEVICE_TEST.md S-2..S-6.
+
+### Accessibility pass (code)
+| NFR | What was checked / changed | Verified by |
+|---|---|---|
+| A1 targets >= 48 dp | Audit of every tappable element: all are `Btn` (min 52 x 48), `Choice` (min 56) or, formerly, three stock buttons on Diagnostics, now converted to `Btn`. Calendar cells are 48 dp but not interactive | code review; Device S-2.13 |
+| A2 labels + spoken amounts | Every `Btn` is labelled (title), `Choice` is a radio with selected state, status banners are live regions (polite/assertive), `Row` speaks its value. New: any text containing "0.0200 SOL" / "0.2 %" gets an automatic spoken label ("zero point zero two zero zero SOL", "minus", "plus", "percent"), never hiding nested content | `a11yText.test.ts` (unit); Device S-2.13 |
+| A3 contrast >= 4.5:1 | Tokens moved to `config/theme.ts`; 29 assertions over every text colour on every surface in light and dark, plus 3:1 for borders. Found and fixed the border defect above | `theme.test.ts` (unit) |
+| A4 200 % font scale | `Row` stacks label over value at fontScale >= 1.4 so amounts cannot be clipped; calendar day text capped at 1.3x (they are dates, not amounts); no fixed heights on text; every screen scrolls; buttons wrap | code review; **Device S-2.13 required** (cannot be unit-tested) |
+| A5 not colour alone | Net result = sign + words ("Net loss −0.015 SOL"); cost lines say Refundable/Not refundable; banners are prefixed "Error:" / "Notice:"; calendar marks are a check mark, with a count; progress bar has the numbers beside it; DEVNET badge is text; Diagnostics pass/fail are the words PASS/FAIL | `payslipText.test.ts`, `streakText.test.ts`, `costs.test.ts`; review |
+| Diagnostics screen | Previously hard-coded dark-grey text on white (unreadable in dark mode) and unthemed buttons; now uses the shared themed components | review |
+
 ## 2026-10-06 Go-live readiness + Phase 7 / F9 (P1; F8/F10/F11 NOT started, per your instruction)
 - Go-live readiness (all done, nothing sent, no key touched):
   - Docker verified: started Docker Desktop locally, built crank/Dockerfile, ran it as Railway would: non-root, /health served from outside the container (executor F5YF...m4Ucm, mode DRY_RUN, 0 errors), DRY_RUN=0 without ACKNOWLEDGE_LIVE exits 2. Docker is NOT needed on the user's side: Railway builds the Dockerfile itself from railway.json (no build/start commands to type).

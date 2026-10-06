@@ -3,8 +3,8 @@
 // expo-secure-store and expo-sqlite. No transaction is ever built for signing here.
 import { Buffer } from 'buffer';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Button, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, Text, View } from 'react-native';
+import { Btn, Screen, useTheme } from '../components/ui';
 import * as SecureStore from 'expo-secure-store';
 import * as SQLite from 'expo-sqlite';
 import { PublicKey } from '@solana/web3.js';
@@ -130,6 +130,14 @@ interface Live {
 }
 
 export function SmokeScreen() {
+  const t = useTheme();
+  const st = {
+    title: { ...s.title, color: t.text },
+    h: { ...s.h, color: t.text },
+    mono: { ...s.mono, color: t.text },
+    ok: { ...s.ok, color: t.ok },
+    bad: { ...s.bad, color: t.danger },
+  };
   const { account, connect, disconnect, connection } = useMobileWallet();
   const [checks, setChecks] = useState<Check[] | null>(null);
   const [live, setLive] = useState<Live | null>(null);
@@ -182,62 +190,61 @@ export function SmokeScreen() {
   const total = checks?.length ?? 0;
 
   return (
-    <SafeAreaView style={s.screen}>
-      <ScrollView contentContainerStyle={s.pad}>
-        <Text style={s.title} accessibilityRole="header">
+    <Screen>
+        <Text style={st.title} accessibilityRole="header">
           SHIFT — device smoke test
         </Text>
-        <Text style={s.mono}>
+        <Text style={st.mono}>
           cluster {CLUSTER}
           {IS_MAINNET ? '' : '  (DEVNET: ORE features unavailable)'}
         </Text>
-        <Text style={s.mono}>rpc {RPC_URL.replace(/\/\/([^/]{0,40}).*/, '//$1…')}</Text>
-        <Text style={s.mono}>ore {ORE_PROGRAM_ID.toBase58().slice(0, 12)}…</Text>
+        <Text style={st.mono}>rpc {RPC_URL.replace(/\/\/([^/]{0,40}).*/, '//$1…')}</Text>
+        <Text style={st.mono}>ore {ORE_PROGRAM_ID.toBase58().slice(0, 12)}…</Text>
 
-        <Text style={s.h}>1. Wallet (MWA / Seed Vault)</Text>
+        <Text style={st.h}>1. Wallet (MWA / Seed Vault)</Text>
         {account ? (
           <>
-            <Text style={s.mono}>connected {account.address.toBase58()}</Text>
-            <Text style={s.mono}>balance {balance === null ? '…' : `${sol(BigInt(balance))} SOL`}</Text>
-            <Button title="Disconnect" onPress={() => void disconnect()} />
+            <Text style={st.mono}>connected {account.address.toBase58()}</Text>
+            <Text style={st.mono}>balance {balance === null ? '…' : `${sol(BigInt(balance))} SOL`}</Text>
+            <Btn kind="secondary" title="Disconnect" onPress={() => void disconnect()} />
           </>
         ) : (
-          <Button title="Connect wallet" onPress={() => void connect().catch((e) => setErr(String(e)))} />
+          <Btn title="Connect wallet" onPress={() => void connect().catch((e) => setErr(String(e)))} />
         )}
 
-        <Text style={s.h}>2. Live chain via @shift/codec</Text>
-        <Button title={busy ? 'Fetching…' : 'Fetch & decode'} disabled={busy} onPress={() => void refresh()} />
-        {err && <Text style={s.bad}>ERROR {err}</Text>}
+        <Text style={st.h}>2. Live chain via @shift/codec</Text>
+        <Btn title={busy ? 'Fetching…' : 'Fetch & decode'} busy={busy} onPress={() => void refresh()} />
+        {err && <Text style={st.bad}>ERROR {err}</Text>}
         {live && (
           <View>
-            <Text style={s.ok}>1 RPC call, {live.ms} ms</Text>
-            <Text style={s.mono}>board round {live.board.roundId.toString()}</Text>
-            <Text style={s.mono}>
+            <Text style={st.ok}>1 RPC call, {live.ms} ms</Text>
+            <Text style={st.mono}>board round {live.board.roundId.toString()}</Text>
+            <Text style={st.mono}>
               board slots {live.board.startSlot.toString()} → {live.board.endSlot.toString()} (len {(live.board.endSlot - live.board.startSlot).toString()})
             </Text>
-            <Text style={s.mono}>
+            <Text style={st.mono}>
               config round_slots {live.config.protocol.roundSlots.toString()}, intermission {live.config.protocol.intermissionSlots.toString()}
             </Text>
             {live.sample ? (
               <>
-              <Text style={s.mono}>sample automation (public, decoded)</Text>
-              <Text style={s.mono}>
+              <Text style={st.mono}>sample automation (public, decoded)</Text>
+              <Text style={st.mono}>
                 {'  '}balance {sol(live.sample.balance)} SOL, amount {live.sample.amount.toString()}, fee {live.sample.fee.toString()}
               </Text>
-              <Text style={s.mono}>
+              <Text style={st.mono}>
                 {'  '}strategy {live.sample.strategy.toString()}, mask {live.sample.mask.toString(2).replace(/0/g, '·').replace(/1/g, '■')}
               </Text>
-              <Text style={s.mono}>
+              <Text style={st.mono}>
                 {'  '}executor {live.sample.executor.toBase58().slice(0, 10)}…, reload {live.sample.reload.toString()}
               </Text>
               </>
             ) : (
-              <Text style={s.mono}>sample automation: not found (it has closed) — skipped</Text>
+              <Text style={st.mono}>sample automation: not found (it has closed) — skipped</Text>
             )}
             {account && (
               <>
-                <Text style={s.mono}>your Automation: {live.walletAutomation ? `balance ${sol(live.walletAutomation.balance)} SOL` : 'none'}</Text>
-                <Text style={s.mono}>
+                <Text style={st.mono}>your Automation: {live.walletAutomation ? `balance ${sol(live.walletAutomation.balance)} SOL` : 'none'}</Text>
+                <Text style={st.mono}>
                   your Miner: {live.walletMiner ? `lifetime deployed ${sol(live.walletMiner.lifetimeDeployed)}, returned ${sol(live.walletMiner.lifetimeRewardsSol)} SOL` : 'none'}
                 </Text>
               </>
@@ -245,15 +252,14 @@ export function SmokeScreen() {
           </View>
         )}
 
-        <Text style={s.h}>3. On-device self-test {checks ? `(${passed}/${total} pass)` : '…'}</Text>
+        <Text style={st.h}>3. On-device self-test {checks ? `(${passed}/${total} pass)` : '…'}</Text>
         {checks?.map((c) => (
-          <Text key={c.name} style={c.ok ? s.ok : s.bad}>
+          <Text key={c.name} style={c.ok ? st.ok : st.bad}>
             {c.ok ? 'PASS' : 'FAIL'} {c.name}
             {c.detail ? ` — ${c.detail}` : ''}
           </Text>
         ))}
-      </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

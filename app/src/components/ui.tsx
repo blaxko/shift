@@ -1,14 +1,13 @@
 // Shared UI primitives. NFR-A1 (48 dp targets), NFR-A2 (labels), NFR-A3 (>= 4.5:1 contrast, light + dark),
 // NFR-A4 (layout flows at large font scale: no fixed heights on text), NFR-A5 (never colour alone).
 import React, { type ReactNode } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, useColorScheme, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, useColorScheme, useWindowDimensions, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CLUSTER, IS_MAINNET } from '../config/constants';
+import { palette } from '../config/theme';
+import { autoSpokenLabel, speakAmountsInText } from '../domain/a11yText';
 
-export const palette = {
-  light: { bg: '#FFFFFF', card: '#F3F4F6', text: '#111827', muted: '#4B5563', primary: '#0B5FFF', onPrimary: '#FFFFFF', danger: '#B00020', warn: '#8A4B00', ok: '#0B6B2E', border: '#9CA3AF' },
-  dark: { bg: '#0B0F14', card: '#1A212B', text: '#F3F4F6', muted: '#A7B0BD', primary: '#7FB0FF', onPrimary: '#0B0F14', danger: '#FF9AA2', warn: '#FFC266', ok: '#7EE2A0', border: '#6B7280' },
-} as const;
+export { palette };
 
 export function useTheme() {
   return palette[useColorScheme() === 'dark' ? 'dark' : 'light'];
@@ -55,7 +54,7 @@ export function H2({ children }: { children: ReactNode }) {
 export function P({ children, muted, style, ...rest }: { children: ReactNode; muted?: boolean; style?: object; accessibilityLabel?: string }) {
   const t = useTheme();
   return (
-    <Text style={[{ color: muted ? t.muted : t.text, fontSize: 16, lineHeight: 22 }, style]} {...rest}>
+    <Text style={[{ color: muted ? t.muted : t.text, fontSize: 16, lineHeight: 22 }, style]} accessibilityLabel={rest.accessibilityLabel ?? autoSpokenLabel(children)}>
       {children}
     </Text>
   );
@@ -71,7 +70,16 @@ export function Banner({ tone, children }: { tone: 'info' | 'warn' | 'error'; ch
   const color = tone === 'error' ? t.danger : tone === 'warn' ? t.warn : t.text;
   const prefix = tone === 'error' ? 'Error: ' : tone === 'warn' ? 'Notice: ' : '';
   return (
-    <View accessibilityRole="alert" style={[s.banner, { borderColor: color, backgroundColor: t.card }]}>
+    <View
+      accessibilityRole="alert"
+      accessibilityLiveRegion={tone === 'error' ? 'assertive' : 'polite'}
+      accessibilityLabel={(() => {
+        const spoken = autoSpokenLabel(children);
+        return spoken === undefined ? undefined : `${prefix}${spoken}`;
+      })()}
+      accessible={autoSpokenLabel(children) !== undefined ? true : undefined}
+      style={[s.banner, { borderColor: color, backgroundColor: t.card }]}
+    >
       <Text style={{ color, fontSize: 15, lineHeight: 21 }}>
         {prefix ? <Text style={{ fontWeight: '800' }}>{prefix}</Text> : null}
         {children}
@@ -154,10 +162,16 @@ export function Choice({
 
 export function Row({ label, value, strong, a11yValue }: { label: string; value: string; strong?: boolean; a11yValue?: string }) {
   const t = useTheme();
+  const { fontScale } = useWindowDimensions();
+  const stacked = fontScale >= 1.4; // NFR-A4: at large text sizes put the amount on its own line so it can never be clipped
   return (
-    <View style={s.row} accessible accessibilityLabel={`${label}: ${a11yValue ?? value}`}>
-      <Text style={{ color: t.muted, fontSize: 15, flex: 1, paddingRight: 8 }}>{label}</Text>
-      <Text style={{ color: t.text, fontSize: 15, fontWeight: strong ? '800' : '600', flexShrink: 0, textAlign: 'right' }}>{value}</Text>
+    <View
+      style={[s.row, stacked && { flexDirection: 'column', gap: 2 }]}
+      accessible
+      accessibilityLabel={`${label}: ${a11yValue ?? speakAmountsInText(value)}`}
+    >
+      <Text style={{ color: t.muted, fontSize: 15, flexShrink: 1, paddingRight: stacked ? 0 : 8, flex: stacked ? 0 : 1 }}>{label}</Text>
+      <Text style={{ color: t.text, fontSize: 15, fontWeight: strong ? '800' : '600', flexShrink: stacked ? 1 : 0, textAlign: stacked ? 'left' : 'right' }}>{value}</Text>
     </View>
   );
 }

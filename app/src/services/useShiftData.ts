@@ -4,6 +4,7 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { CRANK_PUBKEY } from '../config/constants';
+import { retryDelayMs } from '../domain/backoff';
 import type { AppError } from '../domain/errors';
 import { refresh } from '../domain/refresh';
 import type { LocalHints, ReconcileResult } from '../domain/shift';
@@ -36,6 +37,20 @@ export function useShiftData(local?: LocalHints): ShiftData {
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const inflight = useRef(false);
+  // E-12: after a failed refresh retry at 1/2/4/8/16 s, then every 30 s, until it works or the screen loses focus.
+  const failures = useRef(0);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const runRef = useRef<() => Promise<void>>(async () => undefined);
+  // Stable callbacks (they only touch refs) so they can be effect dependencies without restarting the focus effect.
+  const clearRetry = useCallback(() => {
+    if (retryTimer.current) clearTimeout(retryTimer.current);
+    retryTimer.current = null;
+  }, []);
+  const scheduleRetry = useCallback(() => {
+    failures.current += 1;
+    if (retryTimer.current) clearTimeout(retryTimer.current);
+    retryTimer.current = setTimeout(() => void runRef.current(), retryDelayMs(failures.current));
+  }, []);
   const localRef = useRef(local);
   localRef.current = local;
   const wallet = address?.toBase58() ?? null;
@@ -73,6 +88,8 @@ export function useShiftData(local?: LocalHints): ShiftData {
         setUpdatedAt(Math.floor(Date.now() / 1000));
         setStale(false);
         setError(null);
+        failures.current = 0;
+        clearRetry();
       } else {
         setError(out.error);
         if (out.cached) {
@@ -80,17 +97,21 @@ export function useShiftData(local?: LocalHints): ShiftData {
           setUpdatedAt(out.cached.updatedAt);
         }
         setStale(true); // AC-5.2
+        scheduleRetry();
       }
     } catch (e) {
       // The store itself failed (disk): still never crash; show whatever we have.
       setError({ code: 'UNKNOWN', userMessage: "Couldn't refresh. Showing your last saved view.", detail: e instanceof Error ? e.message : String(e) });
       setStale(true);
+      scheduleRetry();
     } finally {
       inflight.current = false;
       setRefreshing(false);
       setLoaded(true);
     }
-  }, [address, connection]);
+  }, [address, connection, clearRetry, scheduleRetry]);
+
+  runRef.current = run;
 
   useFocusEffect(
     useCallback(() => {
@@ -98,8 +119,11 @@ export function useShiftData(local?: LocalHints): ShiftData {
       const t = setInterval(() => {
         if (AppState.currentState === 'active') void run();
       }, FOREGROUND_REFRESH_MS);
-      return () => clearInterval(t);
-    }, [run]),
+      return () => {
+        clearInterval(t);
+        clearRetry(); // no retries (and no RPC calls) while the screen is not focused
+      };
+    }, [run, clearRetry]),
   );
 
   return { result, balanceLamports: balance, updatedAt, stale, error, refreshing, loaded, refresh: run };

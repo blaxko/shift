@@ -57,7 +57,7 @@ export default function Timesheet() {
       <View style={{ gap: 4 }}>
         <View style={{ flexDirection: 'row' }} importantForAccessibility="no-hide-descendants">
           {WEEKDAYS.map((d) => (
-            <Text key={d} style={{ flex: 1, textAlign: 'center', color: t.muted, fontSize: 12 }}>
+            <Text key={d} maxFontSizeMultiplier={1.3} style={{ flex: 1, textAlign: 'center', color: t.muted, fontSize: 12 }}>
               {d}
             </Text>
           ))}
@@ -83,9 +83,9 @@ export default function Timesheet() {
                     backgroundColor: c.marked ? t.primary : t.card,
                   }}
                 >
-                  <Text style={{ color: c.marked ? t.onPrimary : t.text, fontWeight: c.marked ? '800' : '500' }}>{c.day}</Text>
+                  <Text maxFontSizeMultiplier={1.3} style={{ color: c.marked ? t.onPrimary : t.text, fontWeight: c.marked ? '800' : '500' }}>{c.day}</Text>
                   {/* NFR-A5: a mark you can read without colour */}
-                  <Text style={{ color: c.marked ? t.onPrimary : t.muted, fontSize: 11 }}>{c.marked ? (c.count > 1 ? `✓×${c.count}` : '✓') : ' '}</Text>
+                  <Text maxFontSizeMultiplier={1.3} style={{ color: c.marked ? t.onPrimary : t.muted, fontSize: 11 }}>{c.marked ? (c.count > 1 ? `✓×${c.count}` : '✓') : ' '}</Text>
                 </View>
               ),
             )}

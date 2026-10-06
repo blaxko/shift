@@ -2,6 +2,8 @@
 // pre-sign invariant guard (NFR-S2/S3/S4) and a successful simulation (AC-3.3). See domain/clockInFlow.ts.
 import { router, useLocalSearchParams } from 'expo-router'
 import React, { useEffect, useMemo, useState } from 'react'
+import { Linking } from 'react-native'
+import { ORE_APP_URL } from '@/src/domain/clockInGate'
 import type { Role } from '@shift/codec'
 import { Banner, Btn, Card, H1, P, Row, Screen } from '@/src/components/ui'
 import { ROLES } from '@/src/config/roles'
@@ -153,6 +155,7 @@ function OutcomeView({ out, showDetail, setShowDetail }: { out: Exclude<FlowOutc
           {showDetail && <P muted style={{ fontFamily: 'monospace', fontSize: 12 }}>{detail}</P>}
         </>
       )}
+      {out.kind === 'blocked' && out.reason === 'foreign-automation' && <Btn kind="secondary" title="Open ORE to stop it" onPress={() => void Linking.openURL(ORE_APP_URL)} />}
       {out.kind === 'blocked' && out.reason === 'shift-active' && <Btn title="View my shift" onPress={() => router.replace('/active')} />}
     </>
   )

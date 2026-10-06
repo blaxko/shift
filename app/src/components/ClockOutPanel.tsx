@@ -44,7 +44,7 @@ export function ClockOutPanel({ p, onPaying, onFinished }: { p: Payslip; /** tel
         <>
           {live ? (
             <P>
-              This ends your shift and collects your rewards in ONE transaction. About <P style={{ fontWeight: '800' }}>{formatSol(p.balanceLeftLamports ?? 0n, 4)} SOL</P> of unspent budget comes back to your wallet, plus the
+              This ends your shift and collects your rewards in ONE transaction. About {formatSol(p.balanceLeftLamports ?? 0n, 4)} SOL of unspent budget comes back to your wallet, plus the
               account deposit, and any ORE you have earned is paid out (ORE keeps a 10 % fee on mined ORE).
             </P>
           ) : nothingToCollect ? (

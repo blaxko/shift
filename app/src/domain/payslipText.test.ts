@@ -65,6 +65,12 @@ describe('describePayslip (F6: losses first, plain language; NFR-A5)', () => {
     expect(describePayslip(base).notes.join(' ')).not.toContain('24 h');
     expect(CLOCK_OUT_NOTICE).toBe("Clock out within 24 h to keep your final round's rewards");
   });
+  it('E-18: a motherlode-sized win is shown normally (no overflow, no special case): 200 ORE and a large SOL return', () => {
+    const big = { ...base, oreEarned: 20_000_000_000_000n, solWon: 450_000_000n, returnedAtClose: 1_000_000n, netSol: 450_000_000n + 1_000_000n - 500_000_000n };
+    const t = describePayslip(big);
+    expect(t.headline).toBe('You put in 0.0500 SOL. You got back 0.4510 SOL + 200.0000 ORE.');
+    expect(t.net).toEqual({ label: 'Net loss', value: '−0.049 SOL' });
+  });
   it('unsettled latest round is explained', () => {
     expect(describePayslip({ ...base, unsettledRound: true }).notes.some((n) => n.includes('not been settled'))).toBe(true);
   });

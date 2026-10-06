@@ -1,6 +1,6 @@
 // React wrapper around the guarded flows: one run at a time (re-entrancy guard), live status for the UI.
 import { useCallback, useRef, useState } from 'react';
-import { CRANK_PUBKEY } from '../config/constants';
+import { CRANK_PUBKEY, IS_MAINNET } from '../config/constants';
 import { runClockIn, type ClockInInput, type ClockInOutcome, type FlowStatus } from '../domain/clockInFlow';
 import { runClockOut } from '../domain/clockOutFlow';
 import { makeFlowDeps } from './txDeps';
@@ -37,6 +37,7 @@ export function useFlow() {
   const clockIn = useCallback(
     (plan: ClockInInput['plan']) =>
       guarded(async (): Promise<ClockInOutcome> => {
+        if (!IS_MAINNET) throw new Error('ORE is only available on mainnet'); // E-23
         if (!address || !CRANK_PUBKEY) throw new Error('wallet or executor key not configured');
         const now = new Date();
         const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -49,6 +50,7 @@ export function useFlow() {
   const clockOut = useCallback(
     (inSignature: string) =>
       guarded(async () => {
+        if (!IS_MAINNET) throw new Error('ORE is only available on mainnet'); // E-23
         if (!address || !CRANK_PUBKEY) throw new Error('wallet or executor key not configured');
         return runClockOut({ owner: address, crank: CRANK_PUBKEY, inSignature }, makeFlowDeps(connection, address, signAndSend), setStatus);
       }),

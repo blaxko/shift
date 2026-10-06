@@ -10,22 +10,14 @@ You do not need Docker, a terminal on a server, or any build/start commands. The
 
 ## 0. Before you start (10 minutes)
 
-1. **A GitHub account** and the repo pushed to it. Railway builds from GitHub.
-   - First run the secret scan (it must say CLEAN): `node scripts/secret-scan.mjs`
-   - Create an empty repo on github.com (name it e.g. `shift`; **private** is fine for now, Railway can deploy private repos; the hackathon needs it public at submission).
-   - In PowerShell from the repo folder:
-     ```powershell
-     git remote add origin https://github.com/<your-user>/shift.git
-     git push -u origin main
-     ```
-   - **Never** commit `executor.json` or any `.env` file. `.gitignore` already blocks them and the scan checks every commit.
+1. **The repo on GitHub: DONE.** `https://github.com/blaxko/shift` (public) holds our `main`. Before the first push on 2026-10-06 the secret scan (`node scripts/secret-scan.mjs`) was CLEAN across all 32 commits, and afterwards we confirmed through GitHub's API that no `executor.json`, `.env` or keypair file is in the repo. **Re-run the scan before every later push.** Never commit `executor.json` or any `.env`: `.gitignore` blocks them and the scan checks every commit.
 2. **An RPC URL that is not the public one.** The free public Solana RPC rate-limits the kind of query the crank makes. Make a free account at an RPC provider (for example Helius or QuickNode), create a **mainnet** endpoint, and copy its HTTPS URL. It contains your API key: treat it like a password.
 3. Your executor **public key** (`F5YFzE8dREtinnGxzTvjQVmSfS7gDgbDPfKZUYym4Ucm`) and the executor funded with about **0.03 SOL**.
 
 ## 1. Create the Railway project
 
 1. Go to **railway.com** and sign up with GitHub. A trial or the Hobby plan (about $5/month) is enough: the crank is tiny.
-2. **New Project → Deploy from GitHub repo** → authorise Railway on GitHub (allow access to just the `shift` repo) → pick the repo.
+2. **New Project → Deploy from GitHub repo** → authorise Railway on GitHub (allow access to just the `blaxko/shift` repo) → pick `blaxko/shift` and the `main` branch.
 3. Railway starts a build straight away. **The first deploy will show "Crashed" or "Failed". That is expected**: no settings exist yet, and the crank refuses to start without them (you will see `config_error` in the logs). Do not worry; we fix it in step 2.
 
 ### Check the build settings (once)

@@ -4,7 +4,7 @@
 
 | Field | Value |
 |---|---|
-| Status | v1.4, build-ready. Items marked **[VERIFY]** must be confirmed in source before the dependent code is written |
+| Status | v1.5, build-ready. Items marked **[VERIFY]** must be confirmed in source before the dependent code is written |
 | Owner | Solo builder (product, engineering, demo) |
 | Builder | Human + Claude Code (see `shift-claude-code-prompt.md`) |
 | Target | CLOCK IN hackathon (Solana Mobile × Radiants): Mobile track + ORE matched prize |
@@ -19,6 +19,7 @@
 | 4 Oct 2026 | 1.2 | (1) Source-verified that the 10 000-lamport checkpoint reserve and the Miner rent are **not refundable** (ORE_NOTES §7.12): FR-2.1 breakdown labels each cost Refundable / Not refundable, new AC-2.5; IN memo gains `setupLamports`; payslip nets setup cost. (2) New AC-4.6: end-of-shift run-down test (rent safety near zero balance). (3) Phase 2 starts with a device smoke build (docs/DEVICE_TEST.md S-1) |
 | 6 Oct 2026 | 1.3 | Device S-2 finding: rent is a cluster parameter and changed (6960 → 5080 lamports/byte between 4 and 6 Oct). The app reads rent live only (no constants, drift tests added); amounts in this PRD are examples as of 6 Oct. Budget line copy changed to "at risk (unspent part returned)" |
 | 6 Oct 2026 | 1.4 | Crank implemented (dry-run only so far): FR-4.5 (Preferred only, funded for one round, never creates a Miner, "waiting" round is open), FR-4.6 + AC-4.7 (dry-run default, live needs two switches, secret never loaded in dry-run), AC-4.5 strengthened (source scan + runtime guard), ComputeBudget priority-fee instructions disclosed; TRUST_MODEL notes the final-round checkpoint limitation (OQ-7) |
+| 6 Oct 2026 | 1.5 | Decisions: OQ-7 accepted for the hackathon (final-round Checkpoint is the user's clock-out; new AC-6.5 and F8 copy: "Clock out within 24 h to keep your final round's rewards"); new P2 feature F14 (crank rebuilds its served-authority list from its own tx history, statelessly, and sends final-round Checkpoints); OQ-8 resolved: ComputeBudget priority-fee instructions stay, disclosure in PRD v1.4 + TRUST_MODEL is sufficient |
 
 ---
 
@@ -145,6 +146,7 @@ Seeker owners. Solana Mobile reports 200K+ devices shipped and 800+ dApp Store a
 | F11 | Crank status indicator in the app | P1 | US-11 |
 | F12 | Home-screen widget | P2 | — |
 | F13 | Motherlode push notification from the crank | P2 | — |
+| F14 | Crank derives the authorities it has served from its own transaction history (stateless) and sends their final-round Checkpoints | P2 | US-5 |
 
 ---
 
@@ -302,6 +304,7 @@ Acceptance criteria:
 - **AC-6.2** WHEN app data is cleared or the app is reinstalled THE APP SHALL rebuild all shifts from the last 60 days of memos after reconnecting.
 - **AC-6.3** WHEN the ORE delta is negative (rewards claimed outside SHIFT) THE APP SHALL show "Some rewards were claimed outside SHIFT" and SHALL NOT show negative winnings. (SOL deltas cannot go negative: lifetime counters are monotonic.)
 - **AC-6.4** `reconcile` SHALL be a pure function with fixture-based unit tests covering all shift states in §9.2.
+- **AC-6.5** WHEN a shift is **Complete** and has no OUT memo (not clocked out) THE APP SHALL show "**Clock out within 24 h to keep your final round's rewards**" on **Home** and on the **Payslip** (ORE forfeits an unchecked round's rewards after about a day, `checkpoint.rs:52-57`; the crank does not checkpoint after ORE closes a depleted automation, OQ-7).
 
 ### F7 — Clock out
 **Flow:** payslip → **Clock out & collect** → simulate → MWA sign → confirmed → payslip stamped **PAID**.
@@ -317,7 +320,7 @@ Acceptance criteria:
 ### F8 — Shift-end notification (P1)
 - FR-8.1: Schedule a local notification at `estimatedEnd` when clock-in confirms; cancel it if the shift is ended early.
 - FR-8.2: Request notification permission at the first clock-in, not at launch.
-- **AC-8.1** WHEN the estimated end time passes THE DEVICE SHALL show "Shift over — your payslip is ready", and tapping it SHALL open the payslip.
+- **AC-8.1** WHEN the estimated end time passes THE DEVICE SHALL show "Shift over — your payslip is ready. Clock out within 24 h to keep your final round's rewards.", and tapping it SHALL open the payslip.
 - **AC-8.2** WHEN permission is denied THE APP SHALL keep working with no repeated prompts.
 
 ### F9 — Timesheet, streak, PTO, probation (P1)

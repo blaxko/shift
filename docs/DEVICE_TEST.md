@@ -129,8 +129,8 @@ Pass/fail for S-3.1 … S-3.9, the wallet balance **before / after clock-in / af
 
 | ID | AC | Step | Expected | Result |
 |---|---|---|---|---|
-| S-4.1 | AC-6.5, AC-5.3 | Open the app (wallet from S-3, shift already ended) | Home shows **Shift complete**, a sentence starting "You put in 0.0200 SOL. You got back …", and an amber **"Clock out within 24 h to keep your final round's rewards."** with **See payslip** | |
-| S-4.2 | F6 | Tap **See payslip** | Title "Payslip"; headline "You put in 0.0200 SOL. You got back 0.0200 SOL." (0 rounds were played: the whole budget came back); **Net loss −0.0044804 SOL** (the one-time setup; the sign AND the words are shown); Details: Rounds worked 0 of 46, SOL played 0.00, Executor fees 0.00, Unspent budget returned 0.02, **One-time setup — not refundable 0.0044804 SOL**; the note "Network fees are not included."; a disabled **Clock out & collect** ("arrives in the next build") | |
+| S-4.1 | AC-6.5, AC-5.3 | Open the app (wallet from S-3, shift already ended, 0 rounds played) | Home shows **Shift complete**, a sentence starting "You put in 0.0200 SOL. You got back …", and a **Clock out & collect** button. **No** amber "Clock out within 24 h…" notice: a 0-round shift has no unchecked round with rewards at stake (PRD v1.6) | |
+| S-4.2 | F6 | Tap **Clock out & collect** (opens the Payslip) | Title "Payslip"; headline "You put in 0.0200 SOL. You got back 0.0200 SOL." (0 rounds were played: the whole budget came back); **Net loss −0.0044804 SOL** (the one-time setup; sign AND words shown); Details: Rounds worked 0 of 46, SOL played 0.00, Executor fees 0.00, Unspent budget returned 0.02, **One-time setup — not refundable 0.0044804 SOL**; "Network fees are not included."; **no** 24 h notice; a **Clock out & collect** card. (Do NOT tap confirm yet: that is S-5) | |
 | S-4.3 | AC-5.1 | Force-stop the app, reopen | Home is painted from the saved copy within ~1 s, then refreshes; the numbers do not change | |
 | S-4.4 | AC-6.1 | Send me the wallet address shown on Home (or copy it from your wallet). I run `scripts/payslip-check.ts` on it | My read of the raw Miner counters and memo ledger produces the same payslip numbers you see (to the lamport) | |
 | S-4.5 | AC-5.2, E-12 | Airplane mode on, pull down to refresh on Home | An amber banner "Couldn't refresh. Showing your last saved view. Last updated HH:MM" and the same figures; no crash. Airplane off + pull to refresh: banner disappears | |
@@ -138,7 +138,31 @@ Pass/fail for S-3.1 … S-3.9, the wallet balance **before / after clock-in / af
 | S-4.7 | F5 | Start a new shift (0.02 SOL) and approve | **Your shift is running**: Rounds worked **0 of 46**, a progress bar with the words next to it, **Time left about 59 min**, Budget left 0.0200 SOL, "Returned by ORE so far (≈ live)" 0.00, ORE 0.0000. The earlier shift now appears under "Earlier shifts" on the Payslip screen | |
 | S-4.8 | F5 | On the running shift, force-stop the app and reopen | Still **Your shift is running** (the chain is the truth); no duplicate shift | |
 | S-4.9 | F5 | Pull to refresh; also leave the screen open ~1 minute | "Updated HH:MM:SS" changes (30 s foreground refresh); nothing refreshes while the app is in the background | |
-| S-4.10 | F7-early | **End shift & withdraw** → confirm → approve | "Shift ended", then **Shift complete** state with the 24 h notice. Payslip for the second shift: net loss = setup cost only (0 for this one: the Miner already exists, so **0.00 SOL**) → label "Break-even" | |
+| S-4.10 | F7 | **End shift & withdraw** → read the confirmation → confirm → approve | Covered in detail by **S-5.5**; here just check the screen ends on a PAID shift with no crash | |
 
 ### Please report back
 Pass/fail for S-4.1 … S-4.10, the Payslip numbers you see (headline, net, setup line) and your wallet address for S-4.4. For S-4.6 tell me how long the rebuild took.
+
+---
+
+## S-5 — Phase 6: real clock-out (F7; AC-7.1-7.5, AC-6.5, AC-3.4-style reconcile)
+
+**Build:** `git pull`, `cd app`, `eas build --platform android --profile smoke`. Run after S-4.1/S-4.2 on the wallet from S-3 (a 0-round **Complete** shift). "End shift & withdraw" and "Clock out & collect" are now the **same single transaction**.
+
+| ID | AC | Step | Expected | Result |
+|---|---|---|---|---|
+| S-5.1 | AC-7.4, AC-6.5 | Payslip of the 0-round shift → **Clock out & collect** | A confirmation: "No rounds were played, so there is nothing to collect. This just records the shift as PAID (a small network fee applies)." No wallet prompt yet | |
+| S-5.2 | AC-7.1, AC-7.4 | **Confirm: clock out** → approve in the wallet | The wallet shows ONE transaction with a **single Memo instruction** and nothing else (no ClaimORE, no checkpoint, no stop: all omitted because there is nothing to do). Status messages in order: Checking… / Checking the transaction… / Approve in your wallet… / Confirming… | |
+| S-5.3 | AC-7.1 | Open the transaction on the explorer (link in your wallet) | Exactly one instruction: Memo `SHIFT1\|OUT\|` + the first 16 characters of your clock-in signature | |
+| S-5.4 | AC-7.2, F6 | Back on the Payslip / Home | Title **Payslip — PAID**; Home says **No shift today** with a **Last payslip** button; balance down by only ONE network fee (~0.000005 SOL) | |
+| S-5.5 | AC-7.3 | Start a new shift (0.02 SOL, defaults), approve. On **Your shift is running** tap **End shift & withdraw** | A confirmation: "This ends your shift and collects your rewards in ONE transaction. About 0.0200 SOL of unspent budget comes back to your wallet, plus the account deposit, and any ORE you have earned is paid out…" | |
+| S-5.6 | AC-7.1, AC-7.2 | **Confirm: end shift** → approve | ONE transaction with TWO instructions: an **Ore** program call (the stop that closes the automation) and the **Memo** (OUT). Result: "Your shift was ended and your rewards collected." / PAID. Wallet balance goes UP by about 0.0200 + the automation deposit (0.00146304 at today's rent) minus one network fee | |
+| S-5.7 | AC-7.2 | Explorer: your **Automation** account for this wallet | Closed / does not exist | |
+| S-5.8 | F6 | Payslip of the second shift | **PAID**; 0 rounds; **Break-even** (setup 0: your Miner already existed); headline "You put in 0.0200 SOL. You got back 0.0200 SOL." | |
+| S-5.9 | AC-7.5 | Look for any way to clock out the same shift again | None: no Clock out button on a PAID payslip | |
+| S-5.10 | AC-6.2 | **Clear data**, reconnect | Both shifts rebuilt as **PAID** (the OUT memos are on chain) | |
+
+*Not testable on device yet (needs the live crank, "go live"):* a shift with rounds played, an unchecked final round (the amber 24 h notice), ORE actually claimed, and the Checkpoint look-ahead. Those are covered by unit tests and by read-only mainnet simulation of the transaction shapes (ClaimORE + close + memo; memo-only).
+
+### Please report back
+Pass/fail for S-5.1 … S-5.10, both transaction signatures (the memo-only OUT and the end-shift one), and your wallet balance before/after each.

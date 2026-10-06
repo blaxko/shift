@@ -4,7 +4,7 @@
 
 | Field | Value |
 |---|---|
-| Status | v1.5, build-ready. Items marked **[VERIFY]** must be confirmed in source before the dependent code is written |
+| Status | v1.6, build-ready. Items marked **[VERIFY]** must be confirmed in source before the dependent code is written |
 | Owner | Solo builder (product, engineering, demo) |
 | Builder | Human + Claude Code (see `shift-claude-code-prompt.md`) |
 | Target | CLOCK IN hackathon (Solana Mobile × Radiants): Mobile track + ORE matched prize |
@@ -20,6 +20,7 @@
 | 6 Oct 2026 | 1.3 | Device S-2 finding: rent is a cluster parameter and changed (6960 → 5080 lamports/byte between 4 and 6 Oct). The app reads rent live only (no constants, drift tests added); amounts in this PRD are examples as of 6 Oct. Budget line copy changed to "at risk (unspent part returned)" |
 | 6 Oct 2026 | 1.4 | Crank implemented (dry-run only so far): FR-4.5 (Preferred only, funded for one round, never creates a Miner, "waiting" round is open), FR-4.6 + AC-4.7 (dry-run default, live needs two switches, secret never loaded in dry-run), AC-4.5 strengthened (source scan + runtime guard), ComputeBudget priority-fee instructions disclosed; TRUST_MODEL notes the final-round checkpoint limitation (OQ-7) |
 | 6 Oct 2026 | 1.5 | Decisions: OQ-7 accepted for the hackathon (final-round Checkpoint is the user's clock-out; new AC-6.5 and F8 copy: "Clock out within 24 h to keep your final round's rewards"); new P2 feature F14 (crank rebuilds its served-authority list from its own tx history, statelessly, and sends final-round Checkpoints); OQ-8 resolved: ComputeBudget priority-fee instructions stay, disclosure in PRD v1.4 + TRUST_MODEL is sufficient |
+| 6 Oct 2026 | 1.6 | Phase 6 clock-out: "End shift & withdraw" is the same single clock-out transaction (AC-7.3), no separate stop-only path; AC-7.4 explains the checkpoint look-ahead and the SHIFT-only close; new AC-7.5 (never clock out twice). AC-6.5 refined: the 24 h notice only when an unchecked round with a deployment exists (a 0-round shift never nags) |
 
 ---
 
@@ -304,7 +305,7 @@ Acceptance criteria:
 - **AC-6.2** WHEN app data is cleared or the app is reinstalled THE APP SHALL rebuild all shifts from the last 60 days of memos after reconnecting.
 - **AC-6.3** WHEN the ORE delta is negative (rewards claimed outside SHIFT) THE APP SHALL show "Some rewards were claimed outside SHIFT" and SHALL NOT show negative winnings. (SOL deltas cannot go negative: lifetime counters are monotonic.)
 - **AC-6.4** `reconcile` SHALL be a pure function with fixture-based unit tests covering all shift states in §9.2.
-- **AC-6.5** WHEN a shift is **Complete** and has no OUT memo (not clocked out) THE APP SHALL show "**Clock out within 24 h to keep your final round's rewards**" on **Home** and on the **Payslip** (ORE forfeits an unchecked round's rewards after about a day, `checkpoint.rs:52-57`; the crank does not checkpoint after ORE closes a depleted automation, OQ-7).
+- **AC-6.5** WHEN a shift is **Complete**, has no OUT memo (not clocked out), **AND the Miner has an unchecked round in which it deployed (rewards at stake)** THE APP SHALL show "**Clock out within 24 h to keep your final round's rewards**" on **Home** and on the **Payslip**. A shift with nothing unchecked, such as a 0-round shift, SHALL NOT show it (but can still be clocked out, which just records PAID). (ORE forfeits an unchecked round's rewards after about a day, `checkpoint.rs:52-57`; the crank does not checkpoint after ORE closes a depleted automation, OQ-7).
 
 ### F7 — Clock out
 **Flow:** payslip → **Clock out & collect** → simulate → MWA sign → confirmed → payslip stamped **PAID**.
@@ -314,8 +315,9 @@ Transaction contents, in order, omitting any part that has nothing to do: **`Che
 Acceptance criteria:
 - **AC-7.1** WHEN the user clocks out THE APP SHALL submit one transaction that claims rewards, returns any remaining automation balance, and writes the OUT memo.
 - **AC-7.2** WHEN the transaction confirms THE APP SHALL show the payslip as PAID, and the Automation account SHALL be closed (absent), with the OUT memo on chain.
-- **AC-7.3** WHEN the user taps End shift early during an active shift THE APP SHALL show a confirmation stating the returned balance, then run the same flow.
-- **AC-7.4** WHEN there are no rewards to claim THE APP SHALL omit the claim (and checkpoint) instructions rather than send ones that fail; `ClaimSOL` is included only if `miner.rewardsSol > 0`.
+- **AC-7.3** WHEN the user taps **End shift & withdraw** during an active shift THE APP SHALL show a confirmation stating the returned balance, then run the **same single clock-out transaction** as "Clock out & collect" (Checkpoint if needed + claims only if > 0 + close + OUT memo), not a separate stop-only path.
+- **AC-7.4** WHEN there are no rewards to claim THE APP SHALL omit the claim (and checkpoint) instructions rather than send ones that fail; `ClaimSOL` is included only if `miner.rewardsSol > 0`. Because a Checkpoint can credit rewards in the same transaction, the app simulates the Checkpoint alone first and decides the claims from the Miner as it will be afterwards; a Checkpoint for the round still in progress is a no-op in ORE (`checkpoint.rs:44`). The close is included only for SHIFT's own automation (executor = the SHIFT executor); a foreign automation is never touched.
+- **AC-7.5** WHEN a shift already has an OUT memo THE APP SHALL refuse to clock it out again (no second transaction).
 
 ### F8 — Shift-end notification (P1)
 - FR-8.1: Schedule a local notification at `estimatedEnd` when clock-in confirms; cancel it if the shift is ended early.

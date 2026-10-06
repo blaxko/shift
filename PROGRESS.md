@@ -1,5 +1,16 @@
 # Progress
 
+## 2026-10-06 Phase 6 — clock-out (built + unit-verified + mainnet-simulated; AWAITING device S-5)
+- Done (417 unit tests green; app tsc + expo lint clean):
+  - domain/clockOut.ts + clockOutFlow.ts: ONE transaction [Checkpoint if the miner has an unchecked round] -> [ClaimORE if refined+unrefined > 0 AFTER the checkpoint] -> [ClaimSOL only if rewardsSol > 0] -> [close, only SHIFT's own automation] -> OUT memo; parts with nothing to do are omitted (AC-7.4). The flow simulates the Checkpoint alone and reads the Miner post-state so claims reflect rewards the checkpoint will credit. Pre-sign guard (programs ORE+Memo only; ORE instrs only Checkpoint/ClaimORE bps 10000 to the wallet's own ATA/ClaimSOL/zeroed stop; wallet the only signer; strict order; OUT memo last pointing at this shift; tamper tests). Refuses to clock out twice (AC-7.5). Unknown send state: wait for blockhash expiry, success only if the OUT memo is on chain.
+  - "End shift & withdraw" is now this same flow (AC-7.3); the stop-only slice and its tests were removed. One shared ClockOutPanel serves Active and Payslip (kept mounted while Paying: found + fixed a bug where reconcile flipping to paying would have unmounted it mid-flow).
+  - AC-6.5 refined per user: the 24 h notice only when Complete + no OUT + an unchecked round in which the miner deployed (rewardsAtStake). The S-3 0-round shift: no nag, but can be clocked out (memo-only tx records PAID). Tests include that exact case.
+  - Mainnet read-only simulation (scripts/simulate-live.ts): E1 [ClaimORE, stop, OUT memo] OK; E2 memo-only OK (both through the real ORE program). F (Checkpoint look-ahead on a live ended-round miner) SKIPPED: none exists right now (ORE bots keep miners current); the mechanism is unit-tested with synthetic post-state and the simulate-with-accounts plumbing was already proven in cases A/B. Learned: ORE Checkpoint is a no-op for the round in progress (checkpoint.rs:44).
+  - PRD v1.6 (AC-6.5 refined, AC-7.3, AC-7.4, new AC-7.5); DEVICE_TEST S-4 rows updated, new S-5.
+- Wallet check for S-4.4 (GKnGAR...zjtc): read-only scripts/payslip-check.ts shows balance 0, no Automation, no Miner, no SHIFT memos => S-3 has not happened on that wallet on mainnet yet; comparison pending.
+- AC status: unit + simulation verified; device pending S-5: AC-7.1, AC-7.2, AC-7.3, AC-7.4, AC-7.5 (parts: with-rewards path needs the live crank). Phase 6 exit ("full loop twice with a force-kill") also needs the live crank.
+- Next: wait for S-3/S-4/S-5. Phase 7 P1 (streak/timesheet, F11 crank status, F8 notification, F10 share) can start; the P0 checkpoint report needs device results + a live crank run.
+
 ## 2026-10-06 Phase 5 — reconciler, payslip, active screen (built + unit-verified; AWAITING device S-4)
 - Done (384 unit tests green; app tsc + expo lint clean; Metro bundles 1825 modules):
   - Executor public key F5YF...m4Ucm set in app/eas.json (smoke + release) and committed; wallet shows 0 SOL (needs funding before any go-live). OQ-7 accepted / OQ-8 resolved; PRD v1.5: AC-6.5 + AC-8.1 copy + P2 feature F14.

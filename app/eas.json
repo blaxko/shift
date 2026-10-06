@@ -10,7 +10,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_CLUSTER": "mainnet-beta"
+        "EXPO_PUBLIC_CLUSTER": "mainnet-beta",
+        "EXPO_PUBLIC_CRANK_PUBKEY": "F5YFzE8dREtinnGxzTvjQVmSfS7gDgbDPfKZUYym4Ucm"
       }
     },
     "release": {
@@ -19,7 +20,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_CLUSTER": "mainnet-beta"
+        "EXPO_PUBLIC_CLUSTER": "mainnet-beta",
+        "EXPO_PUBLIC_CRANK_PUBKEY": "F5YFzE8dREtinnGxzTvjQVmSfS7gDgbDPfKZUYym4Ucm"
       }
     }
   }
